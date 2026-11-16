@@ -18,6 +18,10 @@ discovery:
   - z2m_tracker
 map:
   - homeassistant_config:ro
+ports:
+  9099/tcp: null
+ports_description:
+  9099/tcp: Prometheus metrics (needs metrics_token)
 options:
   base_topics:
     - zigbee2mqtt
@@ -26,6 +30,7 @@ options:
   persistent_notifications: true
   fire_events: true
   notify_service: ""
+  alert_actions: true
   alert_on_join: true
   disabled_checks: []
   notify_checks:
@@ -57,12 +62,14 @@ options:
   quiet_hours: false
   quiet_start: "23:00"
   quiet_end: "07:00"
+  naming_pattern: ""
   mqtt_host: ""
   mqtt_port: 1883
   mqtt_user: ""
   mqtt_password: ""
   mqtt_ssl: false
   mqtt_ssl_verify: true
+  metrics_token: ""
 schema:
   base_topics:
     - str
@@ -72,6 +79,7 @@ schema:
   persistent_notifications: bool
   fire_events: bool
   notify_service: str?
+  alert_actions: bool?
   alert_on_join: bool
   disabled_checks:
     - str
@@ -93,9 +101,11 @@ schema:
   quiet_hours: bool?
   quiet_start: match(^([01]\d|2[0-3]):[0-5]\d$)?
   quiet_end: match(^([01]\d|2[0-3]):[0-5]\d$)?
+  naming_pattern: str?
   mqtt_host: str?
   mqtt_port: port?
   mqtt_user: str?
   mqtt_password: password?
   mqtt_ssl: bool?
   mqtt_ssl_verify: bool?
+  metrics_token: password?

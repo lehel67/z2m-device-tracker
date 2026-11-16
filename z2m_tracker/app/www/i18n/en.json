@@ -227,6 +227,23 @@
   "health.offline_for": "offline {duration}",
   "health.show_devices": "Show {n}",
   "health.hide_devices": "Hide",
+  "used_by.summary": "Used by {what}",
+  "used_by.automation": {
+    "one": "{n} automation",
+    "other": "{n} automations"
+  },
+  "used_by.script": {
+    "one": "{n} script",
+    "other": "{n} scripts"
+  },
+  "used_by.scene": {
+    "one": "{n} scene",
+    "other": "{n} scenes"
+  },
+  "used_by.type_automation": "Automation",
+  "used_by.type_script": "Script",
+  "used_by.type_scene": "Scene",
+  "used_by.no_editor": "Not editable in Home Assistant's editor",
   "issue.label.offline": "Offline",
   "issue.label.silent": "Not heard from",
   "issue.label.late": "Stopped reporting",
@@ -652,6 +669,67 @@
     "other": "{n} active devices weren't in the scan: {names}. Sleepy battery devices often miss scans. If one keeps missing, check its signal."
   },
   "advice.none": "No problems found. Every device has a reasonable link and no router is overloaded.",
+  "whatif.button": "What if it goes?",
+  "whatif.working": "Working out what happens if {name} goes…",
+  "whatif.failed": "Couldn't work it out: {error}",
+  "whatif.clear": "Clear",
+  "whatif.summary_moves": {
+    "one": "If {name} goes: {n} device moves ({to})",
+    "other": "If {name} goes: {n} devices move ({to})"
+  },
+  "whatif.summary_to": "{n} to {name}",
+  "whatif.summary_orphans": {
+    "one": "{n} has no other router in range ({names})",
+    "other": "{n} have no other router in range ({names})"
+  },
+  "whatif.summary_orphans_only": {
+    "one": "If {name} goes: {n} device has no other router in range ({names})",
+    "other": "If {name} goes: {n} devices have no other router in range ({names})"
+  },
+  "whatif.summary_none": "If {name} goes: nothing in the last scan depends on it. Its neighbours route around it.",
+  "whatif.moves": "Likely move",
+  "whatif.orphans": "No other router in range",
+  "whatif.move_row": "{device} → {to} (LQI {lqi})",
+  "whatif.reason.child": "connects through it",
+  "whatif.reason.behind": "its router is cut off too",
+  "whatif.reason.cut_off": "router with no other path to the coordinator",
+  "whatif.note": "From the routing scan of {when}. The mesh picks its own routes, so this is the likely outcome, not a promise. Sleepy battery devices missing from the scan aren't counted.",
+  "whatif.legend_gone": "Router taken away",
+  "whatif.legend_move": "Moves",
+  "whatif.legend_orphan": "No other router",
+  "whatif.legend_line": "Likely new router",
+  "whatif.latest_only": "What if uses the latest scan.",
+  "place.title": "Where to add a router",
+  "place.line": "{area}: {reasons} → {action}",
+  "place.weak": {
+    "one": "{n} weak device",
+    "other": "{n} weak devices"
+  },
+  "place.no_backup": {
+    "one": "{n} with no backup route",
+    "other": "{n} with no backup route"
+  },
+  "place.hopping": {
+    "one": "{n} keeps changing router",
+    "other": "{n} keep changing router"
+  },
+  "place.unstable": {
+    "one": "{n} dropping out",
+    "other": "{n} dropping out"
+  },
+  "place.add": "add a plug-in router here",
+  "place.add_more": {
+    "one": "it has {n} router already: move it closer to them, or add another",
+    "other": "it has {n} routers already: move one closer to them, or add another"
+  },
+  "place.devices": "Devices: {names}",
+  "place.none": "No area stands out. Weak links, devices without a backup route and dropouts are few or spread out.",
+  "place.no_area": {
+    "one": "{n} device with problems has no area in Home Assistant, so it isn't counted.",
+    "other": "{n} devices with problems have no area in Home Assistant, so they aren't counted."
+  },
+  "place.note": "Scored from the last routing scan, router changes over the last 7 days and dropouts in the last 24 hours. A device with no backup route counts most.",
+  "place.flag": "#{rank} place to add a router",
   "activity.empty": "No activity yet",
   "activity.empty_text": "Joins, leaves, renames, removals, battery changes and online/offline changes appear here.",
   "event.detail.appeared": "Appeared in the Z2M device list",
@@ -703,6 +781,7 @@
   "event.kind.network_online": "network online",
   "event.kind.zigbee2mqtt_restarted": "zigbee2mqtt restarted",
   "event.kind.zigbee2mqtt_updated": "zigbee2mqtt updated",
+  "event.kind.settings_changed": "settings changed",
   "event.kind.replaced": "replaced",
   "event.kind.replaced_by": "replaced by",
   "reading.temperature": "Temperature",
@@ -852,6 +931,36 @@
   "battery.saved_bn": "Saved and Battery Notes updated",
   "battery.remove_title": "Remove this entry?",
   "battery.remove_text": "Removes it from the tracker's history only. Battery Notes isn't changed.",
+  "battery.brand": "Brand (optional)",
+  "battery.brand_placeholder": "e.g. Panasonic",
+  "battery.no_brand": "No brand",
+  "battery.manage_brands": "Manage brands",
+  "battery.brand_add": "Add brand",
+  "battery.brand_edit": "Change brand",
+  "battery.brand_text": "The brand of the battery put in on {date}. Leave empty to clear it.",
+  "brands.title": "Battery life by brand",
+  "brands.subtitle": "Average time from one battery change to the next on the same device. Batteries still in use aren't counted yet.",
+  "brands.average": {
+    "one": "{n} day",
+    "other": "{n} days"
+  },
+  "brands.not_enough": "Not enough data yet",
+  "brands.used_up": {
+    "one": "{n} battery used up",
+    "other": "{n} batteries used up"
+  },
+  "brands.range": "{min}–{max}",
+  "brands.in_use": {
+    "one": "{n} in use now",
+    "other": "{n} in use now"
+  },
+  "brands.settings_title": "Battery brands",
+  "brands.settings_desc": "Brands to pick from when you record a battery change. Removing one here doesn't change changes already recorded.",
+  "brands.none": "No brands yet. Add the ones you buy.",
+  "brands.new": "New brand",
+  "brands.remove": "Remove {brand}",
+  "brands.added": "Added {brand}",
+  "brands.removed": "Removed {brand}",
   "history.replaces": "Replaces {device}",
   "history.possibly_replaces": "Possibly replaces {name}, removed {date}.",
   "history.earlier": "earlier",
@@ -1069,6 +1178,12 @@
   "pair.move_subtitle": "Re-pair it through a router you choose",
   "pair.subtitle": "Opens pairing, then helps you set up what joins",
   "pair.keep_open": "Keep open for",
+  "pair.apply": "Apply",
+  "pair.step.joined": "Joined",
+  "pair.step.interviewing": "Interviewing",
+  "pair.step.successful": "Identified",
+  "pair.step.failed": "Interview failed",
+  "pair.failed_hint": "Reset it and pair it again while pairing is still open, close to the router or coordinator.",
   "snack.ieee_copied": "IEEE address copied",
   "snack.unmuted": "No longer ignored",
   "snack.unmuted_all": "Nothing ignored now",
@@ -1101,6 +1216,14 @@
   "settings.automation_event_desc": "Fires {event} for your automations",
   "settings.mobile": "Mobile notifications",
   "settings.mobile_desc": "Notify service, e.g. {example}",
+  "settings.naming": "Device names",
+  "settings.naming_desc": "Fills in names for new devices when pairing, and the Naming check lists names that don't follow it.",
+  "settings.naming_pattern": "Naming pattern",
+  "settings.naming_tokens": "{area} area, {type} kind (Motion, Door, Plug…), {model} model, {n} number that keeps it unique. Empty turns it off.",
+  "settings.naming_example": "Example",
+  "settings.naming_sample_area": "Kitchen",
+  "settings.naming_example_none": "No name: add {area}, {type} or {model}",
+  "settings.naming_off": "Off",
   "settings.test_notification": "Send test notification",
   "settings.weekly": "Weekly summary",
   "settings.weekly_desc": "One message a week: what needs attention, batteries to buy, new and removed devices.",
@@ -1216,7 +1339,7 @@
   "replace.step.name": "Name",
   "replace.step.area": "Area",
   "replace.step.bindings": "Bindings",
-  "replace.step.notes": "Notes and asset details",
+  "replace.step.notes": "Notes, asset details and maintenance tasks",
   "replace.step.battery": "Battery record",
   "replace.step.remove": "Remove the old device",
   "replace.step.link": "Link both histories",
@@ -1226,7 +1349,7 @@
   "replace.hint.other_network": "The new device is on another network, so bindings can't be copied.",
   "replace.hint.bindings": "Re-created on the new device. Links to the coordinator are set up by Zigbee2MQTT itself.",
   "replace.hint.no_bindings": "No bindings recorded.",
-  "replace.hint.notes": "The serial number isn't copied.",
+  "replace.hint.notes": "The serial number isn't copied. Maintenance tasks move to the new device.",
   "replace.hint.nothing": "Nothing recorded.",
   "replace.hint.battery": "Off by default: a new device comes with a fresh battery.",
   "replace.hint.already_gone": "Already gone from Zigbee2MQTT.",
@@ -1235,6 +1358,7 @@
   "replace.carried.area": "area",
   "replace.carried.bindings": "bindings",
   "replace.carried.notes": "notes",
+  "replace.carried.maintenance": "maintenance tasks",
   "replace.carried.battery_record": "battery record",
   "replace.intro": "Pair the new device first, then choose it here. The new device takes over {name}'s name, area and setup. Its history starts where this one ended.",
   "replace.new_device": "New device",
@@ -1286,6 +1410,14 @@
   "coord.mqtt_value": "{sent} sent · {received} received",
   "coord.leaves_week": "Leaves this week",
   "coord.memory_chart": "Memory, last 14 days",
+  "coord.settings_changes": "Zigbee2MQTT settings changes",
+  "coord.change_hidden": "Changed (value hidden)",
+  "coord.change_added": "Set to {value}",
+  "coord.change_removed": "Removed, was {value}",
+  "coord.settings_older": {
+    "one": "{n} older change kept",
+    "other": "{n} older changes kept"
+  },
   "coord.memory_bar": "{date}: {n} MB",
   "coord.today": "today",
   "coord.health_off": "No health data from Zigbee2MQTT yet. It needs version 2.5 or newer, and sends every 10 minutes by default (Settings → Settings → Health → Interval).",
@@ -1297,6 +1429,87 @@
   },
   "check.group_member_offline.label": "Group members offline",
   "check.group_member_offline.description": "A Zigbee2MQTT group has members that have been offline for longer than the offline threshold.",
+  "issue.label.maintenance_due": "Maintenance overdue",
+  "issue.maintenance_due.title": "Maintenance overdue",
+  "issue.maintenance_due.detail": {
+    "one": "Overdue: {titles}. Due {n} day ago.",
+    "other": "Overdue: {titles}. Due {n} days ago."
+  },
+  "check.maintenance_due.label": "Maintenance overdue",
+  "check.maintenance_due.description": "A maintenance task set on the device (such as testing a smoke alarm) is past its due date.",
+  "event.kind.maintenance_done": "maintenance done",
+  "maint.title": "Maintenance",
+  "maint.none": "No maintenance tasks. Add recurring jobs such as testing a smoke alarm or cleaning a sensor.",
+  "maint.every.days": {
+    "one": "Every day",
+    "other": "Every {n} days"
+  },
+  "maint.every.weeks": {
+    "one": "Every week",
+    "other": "Every {n} weeks"
+  },
+  "maint.every.months": {
+    "one": "Every month",
+    "other": "Every {n} months"
+  },
+  "maint.every.years": {
+    "one": "Every year",
+    "other": "Every {n} years"
+  },
+  "maint.unit.days": "days",
+  "maint.unit.weeks": "weeks",
+  "maint.unit.months": "months",
+  "maint.unit.years": "years",
+  "maint.overdue": {
+    "one": "Overdue by {n} day",
+    "other": "Overdue by {n} days"
+  },
+  "maint.overdue_tag": "Overdue",
+  "maint.due_today": "Due today",
+  "maint.due_in": {
+    "one": "Due tomorrow",
+    "other": "Due in {n} days"
+  },
+  "maint.due_on": "Due {date}",
+  "maint.last_done": "Last done {date}",
+  "maint.task": "Task",
+  "maint.task_placeholder": "Test smoke alarm",
+  "maint.repeat": "Repeat every",
+  "maint.unit": "Unit",
+  "maint.last_done_label": "Last done (optional)",
+  "maint.note": "Note (optional)",
+  "maint.suggestions": "Suggestions",
+  "maint.add": "Add task",
+  "maint.save": "Save task",
+  "maint.editing": "Editing \"{title}\"",
+  "maint.done": "Mark done",
+  "maint.edit": "Edit task",
+  "maint.remove": "Remove task",
+  "maint.remove_title": "Remove this task?",
+  "maint.remove_text": "\"{title}\" and its due date are removed. Times it was marked done stay in the device's history.",
+  "maint.added": "Task added",
+  "maint.saved": "Task saved",
+  "maint.removed": "Task removed",
+  "maint.marked": "Marked done: {title}",
+  "maint.need_title": "Give the task a title",
+  "maint.range": "Repeat every 1 day to 10 years",
+  "maint.n_overdue": {
+    "one": "{n} overdue",
+    "other": "{n} overdue"
+  },
+  "maint.n_soon": {
+    "one": "{n} due in the next 14 days",
+    "other": "{n} due in the next 14 days"
+  },
+  "maint.card_clear": "Nothing due in the next 14 days. Next: {title} on {date}.",
+  "maint.s.smoke_test": "Test smoke alarm",
+  "maint.s.smoke_vacuum": "Vacuum smoke alarm vents",
+  "maint.s.leak_test": "Test leak sensor with a damp cloth",
+  "maint.s.leak_clean": "Clean leak sensor contacts",
+  "maint.s.door_magnet": "Check door sensor magnet alignment",
+  "maint.s.motion_lens": "Wipe motion sensor lens",
+  "maint.s.motion_test": "Walk test motion sensor",
+  "maint.s.thermostat": "Check radiator valve for sticking",
   "groups.title": "Groups",
   "groups.subtitle": {
     "one": "{n} Zigbee2MQTT group, all members fine",
@@ -1317,6 +1530,44 @@
   "groups.chip_offline": "{name} · offline {duration}",
   "groups.chip_offline_now": "{name} · offline",
   "groups.chip_left": "{name} · left {date}",
+  "models.title": "Reliability by model",
+  "models.subtitle": {
+    "one": "{n} model on your network, last 30 days. Tap it to list its devices.",
+    "other": "{n} models on your network, last 30 days. Tap one to list its devices."
+  },
+  "models.sort": "Sort models",
+  "models.sort_worst": "Worst first",
+  "models.sort_devices": "Most devices",
+  "models.sort_battery": "Shortest battery life",
+  "models.devices": {
+    "one": "{n} device",
+    "other": "{n} devices"
+  },
+  "models.uptime": "{n}% uptime",
+  "models.dropouts": {
+    "one": "{n} dropout a month per device",
+    "other": "{n} dropouts a month per device"
+  },
+  "models.no_dropouts": "no dropouts",
+  "models.battery": {
+    "one": "batteries last about {n} day",
+    "other": "batteries last about {n} days"
+  },
+  "models.changes": {
+    "one": "from {n} change",
+    "other": "from {n} changes"
+  },
+  "models.interview_failures": {
+    "one": "{n} failed interview",
+    "other": "{n} failed interviews"
+  },
+  "models.repairs": {
+    "one": "{n} re-pair",
+    "other": "{n} re-pairs"
+  },
+  "models.check": "Check",
+  "models.note": "From your own devices only. A model with just one device can't show a pattern, so it is never flagged. Battery life needs at least two recorded battery dates on a device.",
+  "models.show_all": "Show all {n} models",
   "dhealth.limits": "Limits for this device",
   "dhealth.limit_battery": "Low battery at",
   "dhealth.limit_frozen": "Reading unchanged for",
@@ -1327,6 +1578,63 @@
   "issue.slow_router.detail": "Getting slower: {from_ms} ms to {to_ms} ms in 2 weeks. Often a failing plug or too many devices on one router.",
   "check.slow_router.label": "Router getting slower",
   "check.slow_router.description": "A router's nightly reply time over the last 3 days is more than 3 times its usual and above 150 ms.",
+  "issue.label.slow_commands": "Slow to respond",
+  "issue.slow_commands.title": "Slow to respond",
+  "issue.slow_commands.detail": "Typical reply to commands {ms} ms over the last 24 h ({n} commands). Often a weak link or a busy router on the way.",
+  "issue.slow_commands_rise.title": "Slower to respond",
+  "issue.slow_commands_rise.detail": "Typical reply to commands {ms} ms over the last 24 h, against its usual {usual_ms} ms ({n} commands). Often a weaker link or a busy router on the way.",
+  "check.slow_commands.label": "Slow to respond",
+  "check.slow_commands.description": "Commands to the device (from Home Assistant or automations) take more than 1 s to answer over the last 24 hours, or 3 times longer than its usual. Needs at least 10 commands.",
+  "issue.label.missed_commands": "Misses commands",
+  "issue.missed_commands.title": "Misses commands",
+  "issue.missed_commands.detail": "{missed} of {n} commands in the last 24 h got no reply within 10 s ({percent}%). Usually a weak link or a router that drops messages.",
+  "check.missed_commands.label": "Misses commands",
+  "check.missed_commands.description": "At least 20% of the commands sent to the device over the last 24 hours got no reply within 10 s. Needs at least 10 commands.",
+  "cmd.title": "Commands",
+  "cmd.in_24h": {
+    "one": "{n} in 24 h",
+    "other": "{n} in 24 h"
+  },
+  "cmd.none_24h": "None in the last 24 h",
+  "cmd.typical": "typical {value}",
+  "cmd.missed": {
+    "one": "{n} missed",
+    "other": "{n} missed"
+  },
+  "cmd.chart_title": "Typical reply to commands, last 7 days",
+  "cmd.hint": "Time from a command (a /set message from Home Assistant, an automation or anything else) to the first state message showing what was asked (on, off, brightness…). Commands within 2 s count as one. No reply within 10 s, or none before the next command, counts as missed.",
+  "cmd.bar_none": "no reply",
+  "chart.commands": {
+    "one": "Typical {value} · {n} command · {missed} missed",
+    "other": "Typical {value} · {n} commands · {missed} missed"
+  },
+  "chart.commands_none": {
+    "one": "No reply to {n} command",
+    "other": "No reply to {n} commands"
+  },
+  "issue.label.naming": "Naming",
+  "issue.naming_ieee.title": "Named by its address",
+  "issue.naming_ieee.detail": "Still named by its IEEE address.{extra}",
+  "issue.naming_pattern.title": "Doesn't match naming pattern",
+  "issue.naming_pattern.detail": "Doesn't follow {pattern}.{extra}",
+  "issue.naming.suggested": " Suggested: {name}.",
+  "check.naming.label": "Naming",
+  "check.naming.description": "A device still named by its IEEE address (0x…), or, when a naming pattern is set, a name that doesn't follow it.",
+  "naming.bulk": "Rename to pattern ({n})",
+  "naming.bulk_title": {
+    "one": "Rename {n} device",
+    "other": "Rename {n} devices"
+  },
+  "naming.bulk_text": "Each device gets the name from your pattern {pattern}. Untick any you want to keep as they are. Names change in Zigbee2MQTT and Home Assistant.",
+  "naming.to": "Becomes {name}",
+  "naming.rename_n": "Rename {n}",
+  "naming.none": "No devices to rename",
+  "naming.progress": "Renaming {n} of {total}…",
+  "naming.done": {
+    "one": "Renamed {n} device",
+    "other": "Renamed {n} devices"
+  },
+  "naming.partly": "Renamed {n}, {failed} failed. {error}",
   "ping.button": "Ping",
   "ping.running": "Pinging…",
   "ping.replied": "Replied in {ms} ms",
@@ -1355,6 +1663,31 @@
   "settings.when_hour": "Summary hour",
   "asset.note_saved": "Note saved",
   "activity.show_more": "Show {n} more",
+  "incident.view": "Activity view",
+  "incident.mode_all": "All events",
+  "incident.mode_incidents": "Incidents",
+  "incident.empty": "No incidents",
+  "incident.empty_text": "Related problems on one network are grouped here: 3 or more devices dropping within 10 minutes of each other, or Zigbee2MQTT going offline or restarting. A single device going offline is not an incident.",
+  "incident.cause.z2m_down": "Likely cause: Zigbee2MQTT or coordinator down",
+  "incident.cause.router_offline": "Likely cause: router {name} offline",
+  "incident.cause.network_wide": "Likely cause: network-wide drop (interference or coordinator)",
+  "incident.cause.unknown": "Several devices dropped, cause unknown",
+  "incident.ongoing": "Ongoing",
+  "incident.since": "since {time}",
+  "incident.all_back": {
+    "one": "{n} device affected, back",
+    "other": "{n} devices affected, all back"
+  },
+  "incident.some_back": {
+    "one": "{n} device affected, {back} back",
+    "other": "{n} devices affected, {back} back"
+  },
+  "incident.network_only": "No devices dropped",
+  "incident.network": "Network",
+  "incident.more_events": {
+    "one": "{n} more event not shown",
+    "other": "{n} more events not shown"
+  },
   "devices.show_all": "Show all {n} devices",
   "card.unreachable": "The Zigbee Tracker app isn't reachable",
   "card.loading": "Loading…",
@@ -1441,5 +1774,112 @@
   "card.editor.show_all_help": "Ignores the row limit.",
   "card.editor.show_info": "Include \"worth a look\" items",
   "card.editor.show_info_help": "Off shows only devices that need attention.",
-  "card.editor.show_weak_spots": "List single-point-of-failure routers"
+  "card.editor.show_weak_spots": "List single-point-of-failure routers",
+  "event.kind.coordinator_firmware_updated": "coordinator firmware updated",
+  "issue.label.upgrade_worse": "Worse since upgrade",
+  "issue.upgrade_worse.title": "Worse since the upgrade",
+  "issue.upgrade_worse.detail": "Since {what} ({date}): {list}. Health → Coordinators has the full comparison.",
+  "check.upgrade_worse.label": "Worse since an upgrade",
+  "check.upgrade_worse.description": "After a Zigbee2MQTT or coordinator firmware update, at least 2 days of the week after look clearly worse than the week before: more devices going offline or leaving, lower link quality, fewer messages or more parent router changes.",
+  "upgrade.title": "After the last upgrade",
+  "upgrade.change_z2m": "Zigbee2MQTT {from} → {to}",
+  "upgrade.change_firmware": "Coordinator firmware {from} → {to}",
+  "upgrade.short_z2m": "Zigbee2MQTT {version}",
+  "upgrade.short_firmware": "coordinator firmware {version}",
+  "upgrade.waiting": "Numbers show once the upgrade is a day old.",
+  "upgrade.no_before": "Not enough history from before the upgrade to compare.",
+  "upgrade.after_so_far": {
+    "one": "After so far: {n} day of 7.",
+    "other": "After so far: {n} days of 7."
+  },
+  "upgrade.after_full": "The week before against the week after.",
+  "upgrade.short_before": {
+    "one": "Only {n} day before the upgrade was recorded.",
+    "other": "Only {n} days before the upgrade were recorded."
+  },
+  "upgrade.measure": "Measure",
+  "upgrade.before": "Before",
+  "upgrade.after": "After",
+  "upgrade.change": "Change",
+  "upgrade.worse": "Worse",
+  "upgrade.better": "Better",
+  "upgrade.changed": "Changed",
+  "upgrade.same": "No clear change",
+  "upgrade.metric.offline_per_day": "Devices going offline per day",
+  "upgrade.metric.lqi": "Average link quality",
+  "upgrade.metric.msg_per_hour": "Messages per hour",
+  "upgrade.metric.leaves_per_day": "Devices leaving per day",
+  "upgrade.metric.parent_changes_per_scan": "Parent router changes per routing scan",
+  "upgrade.issue_metric": "{metric} {before} → {after}",
+  "upgrade.earlier": "Earlier upgrades",
+  "upgrade.verdict_worse": "looked worse",
+  "upgrade.verdict_better": "looked better",
+  "upgrade.verdict_same": "no clear change",
+  "upgrade.verdict_waiting": "not enough data after it",
+  "upgrade.verdict_no_before": "not enough history before it",
+  "upgrade.verdict_no_data": "Nothing to compare: the data for these measures wasn't recorded on both sides.",
+  "upgrade.verdict_none": "nothing to compare",
+  "upgrade.alert": "The network looks worse since this upgrade. If it doesn't settle within a few days, check the release notes for known problems, or go back to the previous version.",
+  "issue.label.reporting_config": "Reporting settings",
+  "issue.reporting_config.title": "Reporting settings",
+  "issue.reporting_config.detail": {
+    "one": "{n} reporting setting to check: {names}. The device's Health tab has recommended values.",
+    "other": "{n} reporting settings to check: {names}. The device's Health tab has recommended values."
+  },
+  "issue.reporting_config_rate.title": "Reporting settings",
+  "issue.reporting_config_rate.detail": {
+    "one": "{n} reporting setting to check: {names}. It sent about {rate} messages an hour over the last 6 h. The device's Health tab has recommended values.",
+    "other": "{n} reporting settings to check: {names}. It sent about {rate} messages an hour over the last 6 h. The device's Health tab has recommended values."
+  },
+  "check.reporting_config.label": "Reporting settings",
+  "check.reporting_config.description": "A device's attribute reporting is set to drain its battery, flood the mesh, or never report a measurement.",
+  "event.kind.reporting_changed": "reporting changed",
+  "event.kind.reporting_change_failed": "reporting change failed",
+  "reporting.title": "Reporting",
+  "reporting.none": "Zigbee2MQTT set up no attribute reporting for this device. Many devices send their values without it.",
+  "reporting.not_set": "No reporting set",
+  "reporting.no_details": "no details",
+  "reporting.min": "at least every {every}",
+  "reporting.min_any": "as often as it changes",
+  "reporting.max": "at most every {every}",
+  "reporting.max_never": "never on a timer",
+  "reporting.max_change_only": "only when it changes",
+  "reporting.change": "on a {amount} change",
+  "reporting.change_any": "on any change",
+  "reporting.rule.battery_drain": "Drains the battery.",
+  "reporting.rule.mesh_flood": "Floods the mesh.",
+  "reporting.rule.never": "May go silent.",
+  "reporting.why.battery_drain": "Every report wakes the radio, so a short timer or reporting every small change flattens the battery fast.",
+  "reporting.why.mesh_flood": "Readings this often add traffic every router has to carry, which slows the whole network.",
+  "reporting.why.never": "Reporting is off for this value, so it only updates when something asks for it.",
+  "reporting.why.missing": "The device has this measurement but no reporting is set for it. Reconfigure asks Zigbee2MQTT to set up its defaults again.",
+  "reporting.recommended": "Recommended: {values}.",
+  "reporting.use_recommended": "Use recommended",
+  "reporting.confirmed": "Its traffic backs this up: about {n} messages an hour over the last 6 h.",
+  "reporting.fix_title": "Change {name} reporting?",
+  "reporting.fix_text": "Zigbee2MQTT sends the new setting to {name}. Names, other settings and history aren't changed.",
+  "reporting.now": "Now: {values}",
+  "reporting.new": "New: {values}",
+  "reporting.sending": "Changing {name} reporting…",
+  "reporting.done": "Reporting changed",
+  "reporting.failed": "Couldn't change reporting: {error}",
+  "reporting.gone": "That reporting setting has changed. Check the Health tab again.",
+  "reporting.attr.temperature": "Temperature",
+  "reporting.attr.local_temperature": "Room temperature",
+  "reporting.attr.humidity": "Humidity",
+  "reporting.attr.pressure": "Pressure",
+  "reporting.attr.illuminance": "Illuminance",
+  "reporting.attr.co2": "CO2",
+  "reporting.attr.pm25": "PM2.5",
+  "reporting.attr.soil_moisture": "Soil moisture",
+  "reporting.attr.battery": "Battery",
+  "reporting.attr.battery_voltage": "Battery voltage",
+  "reporting.attr.power": "Power",
+  "reporting.attr.apparent_power": "Apparent power",
+  "reporting.attr.current": "Current",
+  "reporting.attr.voltage": "Voltage",
+  "reporting.attr.energy": "Energy",
+  "reporting.attr.state": "On/off",
+  "reporting.attr.brightness": "Brightness",
+  "reporting.attr.occupancy": "Occupancy"
 }

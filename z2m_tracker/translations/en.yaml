@@ -17,6 +17,9 @@ configuration:
   notify_service:
     name: Notify service
     description: Also send alerts to a notify service, e.g. notify.mobile_app_phone.
+  alert_actions:
+    name: Buttons on phone alerts
+    description: Add Mute 24 h, Ping and Battery replaced buttons to alerts sent to the notify service, and open the device in the Zigbee Tracker when the alert is tapped.
   alert_on_join:
     name: Alert on join
     description: Alert when a new device joins.
@@ -74,6 +77,9 @@ configuration:
   quiet_end:
     name: Quiet hours end
     description: End of quiet hours, as HH:MM. The window can cross midnight.
+  naming_pattern:
+    name: Naming pattern
+    description: Pattern for device names, built from tokens in curly braces - area, type, model and n (a number that keeps names unique). Fills in the name of new devices when pairing and drives the Naming check. Empty turns it off.
   mqtt_host:
     name: MQTT broker address
     description: Your MQTT broker, if it isn't the Mosquitto broker app. Empty uses the broker Home Assistant offers.
@@ -92,3 +98,6 @@ configuration:
   mqtt_ssl_verify:
     name: Check TLS certificate
     description: Check the broker's TLS certificate. Turn off for a self-signed certificate.
+  metrics_token:
+    name: Prometheus metrics token
+    description: Set a token of 16 or more characters to serve Prometheus metrics on port 9099. Empty keeps it off.

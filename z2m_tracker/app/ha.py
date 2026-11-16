@@ -17,6 +17,8 @@ API = "http://supervisor/core/api"
 WEBSOCKET = "ws://supervisor/core/websocket"
 # Registry changes that can alter a device's link, name, area or Battery Notes entities.
 REGISTRY_EVENTS = ("device_registry_updated", "area_registry_updated", "entity_registry_updated")
+# A button pressed on a Companion app notification.
+ACTION_EVENT = "mobile_app_notification_action"
 IDENT_RE = re.compile(r"zigbee2mqtt_(0x[0-9a-f]{16})$")
 # Discovery service name: Supervisor hands this app's address and API token to the integration in Core.
 DISCOVERY_SERVICE = "z2m_tracker"
@@ -122,6 +124,34 @@ def plan_removal(requested: list[str], leftovers: list[dict]) -> tuple[list[dict
         else:
             refused.append(device_id)
     return go, refused
+
+
+# What search/related lists for a device, and the key each list gets in the tracker's snapshot.
+USAGE_KINDS = (("automation", "automations"), ("script", "scripts"), ("scene", "scenes"))
+
+
+def build_usage(related: dict | None, states: dict[str, dict]) -> dict[str, list[dict]]:
+    """The automations, scripts and scenes from one search/related answer, each as
+    {"entity_id", "name", "id"}. id is what HA's editor needs in its URL: an automation's
+    or scene's "id" attribute (None when it isn't editable in the UI, such as YAML ones
+    without an id) or a script's object id. states maps entity id -> state object."""
+    out: dict[str, list[dict]] = {}
+    for domain, key in USAGE_KINDS:
+        items = []
+        for entity_id in sorted({str(x) for x in (related or {}).get(domain) or []}):
+            attributes = (states.get(entity_id) or {}).get("attributes") or {}
+            object_id = entity_id.split(".", 1)[-1]
+            edit_id = object_id if domain == "script" else attributes.get("id")
+            items.append(
+                {
+                    "entity_id": entity_id,
+                    "name": str(attributes.get("friendly_name") or object_id),
+                    "id": str(edit_id) if edit_id not in (None, "") else None,
+                }
+            )
+        items.sort(key=lambda x: x["name"].lower())
+        out[key] = items
+    return out
 
 
 class HomeAssistant:
@@ -292,6 +322,22 @@ class HomeAssistant:
                 _LOGGER.warning("Looking up automations for leftover devices failed: %s", err)
         return found
 
+    def device_usage(self, device_ids: list[str]) -> dict[str, dict[str, list[dict]]]:
+        """The automations, scripts and scenes that use each HA device (see build_usage).
+        One WebSocket connection for the searches, plus one read of the states for names,
+        only when something was found. Raises when HA can't be asked."""
+        device_ids = list(dict.fromkeys(device_ids))
+        if not device_ids:
+            return {}
+        related = self._ws_call([{"type": "search/related", "item_type": "device", "item_id": d} for d in device_ids])
+        states: dict[str, dict] = {}
+        if any((hits or {}).get(domain) for hits in related for domain, _ in USAGE_KINDS):
+            # Without states the names fall back to entity ids and the edit links are left out.
+            listed = self._request("GET", "/states")
+            if isinstance(listed, list):
+                states = {s.get("entity_id"): s for s in listed if isinstance(s, dict)}
+        return {d: build_usage(hits, states) for d, hits in zip(device_ids, related, strict=True)}
+
     def remove_leftovers(self, device_ids: list[str], known: dict[str, dict]) -> dict:
         """Remove the given HA devices, but only those that are still leftovers now.
         Each is removed from the MQTT config entry that owns it, nothing else."""
@@ -446,16 +492,23 @@ class HomeAssistant:
                 battery.setdefault(ieee, {})["type" if key == "battery_type" else "last_replaced"] = state["state"]
         self.battery = battery
 
-    def watch(self, on_change: Callable[[], None], stop_event: threading.Event) -> None:
-        """Call on_change whenever HA's device, area or entity registry changes.
+    def watch(
+        self,
+        on_change: Callable[[], None],
+        stop_event: threading.Event,
+        on_action: Callable[[dict], None] | None = None,
+    ) -> None:
+        """Call on_change whenever HA's device, area or entity registry changes, and on_action with
+        the event data when a notification button is pressed.
         Runs until stop_event is set, reconnecting after a dropped connection."""
         import websocket  # websocket-client, installed in the Dockerfile
 
+        event_types = REGISTRY_EVENTS + ((ACTION_EVENT,) if on_action else ())
         while not stop_event.is_set():
             ws = None
             try:
                 ws = self._ws_connect()
-                for index, event_type in enumerate(REGISTRY_EVENTS, 1):
+                for index, event_type in enumerate(event_types, 1):
                     ws.send(json.dumps({"id": index, "type": "subscribe_events", "event_type": event_type}))
                 ws.settimeout(60)
                 _LOGGER.info("Watching Home Assistant's device registry for changes")
@@ -465,7 +518,16 @@ class HomeAssistant:
                         message = json.loads(ws.recv())
                     except websocket.WebSocketTimeoutException:
                         continue
-                    if message.get("type") == "event":
+                    if message.get("type") != "event":
+                        continue
+                    event = message.get("event") or {}
+                    if event.get("event_type") == ACTION_EVENT:
+                        if on_action is not None:
+                            try:
+                                on_action(event.get("data") or {})
+                            except Exception:  # noqa: BLE001 - a bad press must not drop the watch
+                                _LOGGER.exception("Handling a notification button failed")
+                    else:
                         on_change()
             except Exception as err:  # noqa: BLE001 - reconnect below
                 _LOGGER.warning("Home Assistant registry watch lost, retrying in 30 s: %s", err)

@@ -57,6 +57,10 @@
         "battery_type": {
           "name": "Battery type",
           "description": "Saves the battery type for this device, for example CR2032. Leave empty to keep the current one."
+        },
+        "brand": {
+          "name": "Brand",
+          "description": "The brand of the new battery, for example Panasonic. Used to compare how long each brand lasts."
         }
       }
     },
@@ -191,11 +195,17 @@
     "calendar": {
       "batteries": {
         "name": "Zigbee batteries"
+      },
+      "maintenance": {
+        "name": "Zigbee maintenance"
       }
     },
     "todo": {
       "batteries": {
         "name": "Zigbee batteries"
+      },
+      "maintenance": {
+        "name": "Zigbee maintenance"
       }
     }
   },
@@ -218,7 +228,12 @@
         "binding_lost": "Binding lost",
         "single_point": "Single point of failure",
         "router_hopping": "Changes router often",
-        "slow_router": "Router getting slower"
+        "slow_router": "Router getting slower",
+        "maintenance_due": "Maintenance overdue",
+        "slow_commands": "Slow to respond",
+        "missed_commands": "Misses commands",
+        "reporting_config": "Reporting settings",
+        "naming": "Name doesn't follow the pattern"
       }
     }
   },

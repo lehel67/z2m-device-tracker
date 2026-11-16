@@ -20,6 +20,10 @@ battery_replaced:
       example: CR2032
       selector:
         text:
+    brand:
+      example: Panasonic
+      selector:
+        text:
 
 mute_device:
   fields:
@@ -49,6 +53,11 @@ mute_device:
             - single_point
             - router_hopping
             - slow_router
+            - maintenance_due
+            - slow_commands
+            - missed_commands
+            - reporting_config
+            - naming
     duration:
       selector:
         duration:

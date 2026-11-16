@@ -244,6 +244,18 @@
   .also { display: flex; align-items: center; gap: 8px; min-height: 40px; font-size: 14px; color: var(--text-2); }
   .also-t { flex: 1; min-width: 0; }
   .also .acts { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+  /* What uses a device with a problem: a one-line summary that opens to links into HA. */
+  .used-by { font-size: 14px; color: var(--text-2); }
+  .used-by summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; }
+  .used-by summary::-webkit-details-marker { display: none; }
+  .used-by[open] summary .chev { transform: rotate(180deg); }
+  .used-by ul { list-style: none; margin: 0 0 6px; padding: 0 0 0 24px; }
+  .used-by li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; min-height: 28px; }
+  .used-by a { color: var(--primary-text); font-weight: 500; text-decoration: none; overflow-wrap: anywhere; }
+  .used-by a:hover, .used-by a:focus-visible { text-decoration: underline; }
+  .used-by .name { color: var(--text); overflow-wrap: anywhere; }
+  .used-by .kind { font-size: 12px; }
+  .alerts .used-by summary { min-height: 32px; }
   .row .t2.cause { display: block; color: var(--text); }
   .group-list { margin: 0 0 8px 72px; border-left: 2px solid var(--divider); }
   .group-list .row { min-height: 48px; padding: 6px 12px; border-bottom: 0; }
@@ -254,10 +266,26 @@
   .log { display: flex; gap: 16px; align-items: center; padding: 6px 16px; min-height: 56px; cursor: pointer; }
   @media (hover: hover) and (pointer: fine) { .log:hover { background: var(--hover); } }
   .log .text { flex: 1; min-width: 0; }
+  /* Both lines are blocks in every row: network events are a div, not a button, and inline spans ran together. */
+  .log .t1, .log .t2 { display: block; }
   .log .t1 { color: var(--text); }
   .log .t1 b { font-weight: 500; }
   .log .t2 { font-size: 12px; color: var(--text-2); }
   .log time { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+  .chips.log-mode { padding: 12px 16px 4px; }
+  .inc { border-bottom: 1px solid var(--divider); }
+  .inc:last-child { border-bottom: 0; }
+  .inc-head { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: start; padding-block: 10px; }
+  .inc-head .t1, .inc-head .t2 { display: block; }
+  .inc-head .t1 b { overflow-wrap: anywhere; }
+  .inc-head > .mdi { flex: none; color: var(--text-2); }
+  .inc-events { margin: 0 16px 10px 72px; border-left: 2px solid var(--divider); }
+  .inc-ev { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 2px 0 2px 12px; font-size: 14px; color: var(--text-2); }
+  .inc-ev .text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .inc-ev .text a { color: var(--text); }
+  .inc-ev time { font-size: 12px; white-space: nowrap; }
+  .inc-ic { display: inline-flex; flex: none; }
+  @media (max-width: 600px) { .inc-events { margin-left: 16px; } }
 
   .set-row { display: flex; align-items: center; gap: 16px; padding: 12px 16px; min-height: 72px; border-top: 1px solid var(--divider); }
   .set-row:first-child { border-top: 0; }
@@ -384,6 +412,19 @@
   .saved { color: var(--success); font-size: 13px; opacity: 0; transition: opacity 0.2s; }
   .saved.show { opacity: 1; }
   .rep-list { padding: 0 4px 8px; }
+  .rep-list .rep-acts { display: flex; flex-shrink: 0; }
+  .link-btn.manage-brands { margin: -4px 0 8px; }
+  .link-btn { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 14px; color: var(--primary); cursor: pointer; text-decoration: underline; align-self: flex-start; }
+  .set-row.compact { min-height: 52px; padding-top: 4px; padding-bottom: 4px; }
+  .brand-type { padding: 12px 16px 0; font-size: 14px; font-weight: 500; color: var(--text-2); }
+  .brand-row { padding: 8px 16px; }
+  .brand-row:last-child { padding-bottom: 16px; }
+  .brand-row .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .brand-row .top span { min-width: 0; overflow-wrap: anywhere; }
+  .brand-row .top b { white-space: nowrap; font-weight: 500; }
+  .brand-row .bar { height: 6px; border-radius: 3px; background: var(--divider); margin: 6px 0 4px; overflow: hidden; }
+  .brand-row .bar > i { display: block; height: 100%; border-radius: 3px; background: var(--primary); }
+  .brand-row .t2 { font-size: 13px; color: var(--text-2); }
   .rep-list > div { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px; }
   @media (hover: hover) and (pointer: fine) { .rep-list > div:hover { background: var(--hover); } }
   .hop { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--divider); }
@@ -393,7 +434,20 @@
   .hop .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: none; }
   .hop .chg { font-size: 12px; color: var(--warning-text); font-weight: 500; }
   .rep-list .lost-act { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .rep-list > div.mt-item { flex-wrap: wrap; }
+  .mt-text { flex: 1 1 180px; min-width: 0; display: grid; gap: 2px; overflow-wrap: anywhere; }
+  .mt-text .muted { font-size: 13px; }
+  .chips.mt-picks { flex-wrap: wrap; overflow: visible; padding: 4px 16px 12px; margin: 0; -webkit-mask-image: none; mask-image: none; }
+  .mt-picks .chip { height: auto; min-height: 32px; padding: 4px 12px; text-align: start; white-space: normal; }
+  .mt-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .lost-all { display: flex; justify-content: flex-end; padding: 0 16px 8px; }
+  .rpt { display: grid; gap: 4px; padding: 0 4px 8px; }
+  .rpt > div { padding: 8px 12px; border-radius: 12px; min-width: 0; }
+  .rpt .t1 { overflow-wrap: anywhere; }
+  .rpt .t2 { font-size: 13px; color: var(--text-2); overflow-wrap: anywhere; }
+  .rpt .alert { flex-wrap: wrap; margin-top: 6px; row-gap: 4px; }
+  .rpt .alert .body { flex: 1 1 60%; }
+  .rpt .alert .btn { margin-left: auto; }
   dialog.confirm { width: min(420px, calc(100vw - 32px)); }
   .confirm-body { padding: 24px 24px 0; }
   .confirm-body h2 { margin: 0 0 16px; font-size: 24px; font-weight: 400; }
@@ -538,11 +592,31 @@
   .coord-extra { padding: 0 16px 16px 72px; }
   .coord-extra .sub-h { padding: 4px 0 0; font-size: 12px; font-weight: 400; }
   .coord-extra .alert { margin-top: 12px; }
+  .cfg-log { list-style: none; margin: 4px 0 0; padding: 0; }
+  .cfg-log li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 8px 0; border-bottom: 1px solid var(--divider); font-size: 13px; }
+  .cfg-log li:last-child { border-bottom: 0; }
+  .cfg-where { min-width: 0; overflow-wrap: anywhere; }
+  .cfg-what { grid-column: 1; min-width: 0; overflow-wrap: anywhere; color: var(--text-2); }
+  .cfg-when { grid-column: 2; grid-row: 1; font-size: 12px; color: var(--text-2); white-space: nowrap; }
+  .cfg-old { text-decoration: line-through; }
+  .cfg-more { padding-top: 4px; font-size: 12px; color: var(--text-2); }
   .mem-bars { display: flex; align-items: flex-end; gap: 3px; height: 70px; padding-top: 8px; }
   .mem-bars i { flex: 1; min-width: 0; height: 2px; background: var(--primary); opacity: 0.75; border-radius: 2px 2px 0 0; }
   .mem-bars i.none { background: var(--divider); opacity: 1; }
   .mem-bars i.hi { background: var(--warning); opacity: 1; }
   .mem-axis { display: flex; justify-content: space-between; padding-top: 4px; font-size: 12px; color: var(--text-2); }
+  .upg-head { padding-top: 6px; font-size: 14px; overflow-wrap: anywhere; }
+  .upg-note { padding-top: 2px; font-size: 13px; color: var(--text-2); }
+  table.upg-t { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+  table.upg-t th, table.upg-t td { padding: 6px 8px 6px 0; text-align: right; border-bottom: 1px solid var(--divider); vertical-align: top; }
+  table.upg-t thead th { font-size: 12px; font-weight: 400; color: var(--text-2); }
+  table.upg-t th[scope="row"], table.upg-t thead th:first-child { text-align: left; font-weight: 400; overflow-wrap: anywhere; }
+  table.upg-t td { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.upg-t td:last-child { padding-right: 0; }
+  .upg-st { font-size: 12px; color: var(--text-2); }
+  .upg-list { list-style: none; margin: 4px 0 0; padding: 0; font-size: 13px; }
+  .upg-list li { padding: 4px 0; overflow-wrap: anywhere; }
+  .upg-list .upg-st { padding-left: 4px; }
   @media (max-width: 600px) { .coord .kv { padding-left: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); } .coord-extra { padding-left: 16px; } .coord-more { padding-left: 4px; } .coord-detail { margin: 0 8px; } .coord-detail .kv { padding-left: 0; } .coord-detail .coord-extra { padding-left: 8px; } }
   svg.spectrum { width: 100%; max-width: 720px; height: auto; display: block; margin: 0 auto; }
   svg.spectrum text { font-size: 11px; fill: var(--text-2); font-family: var(--font); }
@@ -569,6 +643,40 @@
   .row.compact .state-ic { width: 32px; height: 32px; margin: 0 4px; }
   @media (max-width: 520px) { .members { padding-left: 16px; } }
   .adv > .btn { flex: none; margin-top: 4px; }
+  .models-sort { padding: 0 16px 8px; }
+  .models-note { padding: 8px 16px 12px; font-size: 13px; color: var(--text-2); }
+  .whatif { margin: 12px 16px 0; border: 1px solid var(--divider); border-radius: 12px; padding: 4px 8px 10px; }
+  .wi-head { display: flex; gap: 14px; align-items: flex-start; padding: 8px 0; }
+  .wi-head .state-ic { width: 36px; height: 36px; flex: none; }
+  .wi-head .text { flex: 1; min-width: 0; padding-top: 6px; line-height: 1.5; overflow-wrap: anywhere; }
+  .wi-head > .btn { flex: none; margin-top: 4px; }
+  .wi-legend { padding: 0 8px 6px 50px; }
+  .map-legend b.dashed.wi { background: repeating-linear-gradient(90deg, var(--warning) 0 5px, transparent 5px 9px); }
+  .wi-list { padding: 4px 8px 0 50px; }
+  .wi-h { font-size: 12px; color: var(--text-2); padding: 6px 0 2px; }
+  .wi-row { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+  .wi-row i { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--warning); transform: translateY(-1px); }
+  .wi-row.orphan i { background: var(--error); }
+  .wi-row small { color: var(--text-2); }
+  .wi-note { font-size: 12px; color: var(--text-2); padding: 6px 8px 0 50px; line-height: 1.4; }
+  .advice > .wi-note { padding-left: 58px; }
+  @media (max-width: 600px) { .whatif { margin: 8px 8px 0; } .wi-head { gap: 10px; flex-wrap: wrap; } .wi-head .text { flex-basis: calc(100% - 50px); } .wi-head > .btn { margin-left: 46px; margin-top: 0; } .wi-legend, .wi-list, .wi-note { padding-left: 8px; } .advice > .wi-note { padding-left: 8px; } }
+  svg.map .wil line { stroke: var(--warning); stroke-width: 2.2; stroke-dasharray: 6 4; pointer-events: none; }
+  svg.map.wi-on .links line { opacity: 0.3; }
+  svg.map.wi-on .links line.wi-cut { opacity: 0.12; }
+  .mnode.wi-gone circle { fill: var(--disabled); stroke-dasharray: 3 2; }
+  .mnode.wi-move circle { fill: var(--warning); }
+  .mnode.wi-orphan circle { fill: var(--error); }
+  .mnode.wi-gone, .mnode.wi-move, .mnode.wi-orphan { opacity: 1; }
+  svg.map:not(.names-off) .mnode.wi-gone text.lbl, svg.map:not(.names-off) .mnode.wi-orphan text.lbl { display: block; }
+  .fp-lines path.wi-line { stroke-width: 2.2; opacity: 0.95; }
+  .fp.wi-on .fp-dev:not(.wi-gone):not(.wi-move):not(.wi-orphan) { opacity: 0.45; }
+  .fp-dev.wi-gone i { background: var(--disabled); box-shadow: 0 0 0 2px var(--card), 0 0 0 3px var(--text-2); }
+  .fp-dev.wi-gone span { text-decoration: line-through; color: var(--text-2); }
+  .fp-dev.wi-move i { background: var(--warning); }
+  .fp-dev.wi-orphan i { background: var(--error); box-shadow: 0 0 0 2px var(--card), 0 0 0 3px var(--error); }
+  .fp-area.suggest { border: 2px dashed var(--primary); }
+  .fp-flag.sug { color: var(--primary-text); }
   @media (max-width: 600px) { svg.map { height: 420px; } .map-info { position: static; width: auto; margin: 8px; } }
   .map-stage.fp-mode { overflow: visible; display: flex; align-items: flex-start; }
   .map-stage.fp-mode .map-info { order: 2; position: sticky; top: 8px; flex: none; width: 300px; margin: 12px 12px 12px 0; }
@@ -633,6 +741,12 @@
   .map-key { padding-top: 0; }
   .map-ctl { position: absolute; top: 8px; left: 8px; z-index: 2; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--divider); border-radius: 20px; box-shadow: var(--shadow); }
   .pair-dev { border-top: 1px solid var(--divider); }
+  .pair-steps { display: flex; flex-wrap: wrap; gap: 4px 16px; list-style: none; margin: 0; padding: 0 16px 8px; font-size: 13px; color: var(--text-2); }
+  .pair-steps li { display: inline-flex; align-items: center; gap: 4px; }
+  .pair-steps li.now { color: var(--primary-text); font-weight: 500; }
+  .pair-steps li.done { color: var(--success); }
+  .pair-steps li.fail { color: var(--error); font-weight: 500; }
+  .lo-list .pick .t2 .to { color: var(--text); font-weight: 500; overflow-wrap: anywhere; }
   .sig { display: inline-flex; align-items: flex-end; gap: 2px; height: 16px; vertical-align: middle; }
   .sig i { width: 4px; border-radius: 1px; background: var(--divider); }
   .sig i:nth-child(1) { height: 25%; } .sig i:nth-child(2) { height: 50%; } .sig i:nth-child(3) { height: 75%; } .sig i:nth-child(4) { height: 100%; }
@@ -780,7 +894,7 @@
   "use strict";
   const REPO = "https://github.com/tempus2016/z2m-device-tracker";
   const LINKS = [[`${REPO}/wiki`, "links.wiki"], [REPO, "links.github"], [`${REPO}/releases`, "links.releases"]];
-  const MDI = {"tune":"M3,17V19H9V17H3M3,5V7H13V5H3M13,21V19H21V17H13V15H11V21H13M7,9V11H3V13H7V15H9V9H7M21,13V11H11V13H21M15,9H17V7H21V5H17V3H15V9Z","alert-circle":"M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z","alert":"M13 14H11V9H13M13 18H11V16H13M1 21H23L12 2L1 21Z","arrow-down":"M11,4H13V16L18.5,10.5L19.92,11.92L12,19.84L4.08,11.92L5.5,10.5L11,16V4Z","arrow-up":"M13,20H11V8L5.5,13.5L4.08,12.08L12,4.16L19.92,12.08L18.5,13.5L13,8V20Z","battery-alert-variant-outline":"M14 20H6V6H14M14.67 4H13V2H7V4H5.33C4.6 4 4 4.6 4 5.33V20.67C4 21.4 4.6 22 5.33 22H14.67C15.4 22 16 21.4 16 20.67V5.33C16 4.6 15.4 4 14.67 4M21 7H19V13H21V8M21 15H19V17H21V15Z","battery-sync":"M13.54 22H7.33C6.6 22 6 21.4 6 20.67V5.33C6 4.6 6.6 4 7.33 4H9V2H15V4H16.67C17.4 4 18 4.6 18 5.33V12C14.69 12 12 14.69 12 18C12 19.54 12.58 20.94 13.54 22M18 13L20.25 15.25L18 17.5V16C16.15 16 14.94 17.96 15.76 19.62L14.67 20.71C12.91 18.05 14.81 14.5 18 14.5V13M18 24L15.75 21.75L18 19.5V21C19.85 21 21.06 19.04 20.24 17.38L21.33 16.29C23.09 18.95 21.19 22.5 18 22.5V24","battery":"M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z","bell-off":"M20.84,22.73L18.11,20H3V19L5,17V11C5,9.86 5.29,8.73 5.83,7.72L1.11,3L2.39,1.73L22.11,21.46L20.84,22.73M19,15.8V11C19,7.9 16.97,5.17 14,4.29C14,4.19 14,4.1 14,4A2,2 0 0,0 12,2A2,2 0 0,0 10,4C10,4.1 10,4.19 10,4.29C9.39,4.47 8.8,4.74 8.26,5.09L19,15.8M12,23A2,2 0 0,0 14,21H10A2,2 0 0,0 12,23Z","bell":"M21,19V20H3V19L5,17V11C5,7.9 7.03,5.17 10,4.29C10,4.19 10,4.1 10,4A2,2 0 0,1 12,2A2,2 0 0,1 14,4C14,4.1 14,4.19 14,4.29C16.97,5.17 19,7.9 19,11V17L21,19M14,21A2,2 0 0,1 12,23A2,2 0 0,1 10,21","calendar-clock":"M15,13H16.5V15.82L18.94,17.23L18.19,18.53L15,16.69V13M19,8H5V19H9.67C9.24,18.09 9,17.07 9,16A7,7 0 0,1 16,9C17.07,9 18.09,9.24 19,9.67V8M5,21C3.89,21 3,20.1 3,19V5C3,3.89 3.89,3 5,3H6V1H8V3H16V1H18V3H19A2,2 0 0,1 21,5V11.1C22.24,12.36 23,14.09 23,16A7,7 0 0,1 16,23C14.09,23 12.36,22.24 11.1,21H5M16,11.15A4.85,4.85 0 0,0 11.15,16C11.15,18.68 13.32,20.85 16,20.85A4.85,4.85 0 0,0 20.85,16C20.85,13.32 18.68,11.15 16,11.15Z","cellphone-wireless":"M20.07,4.93C21.88,6.74 23,9.24 23,12C23,14.76 21.88,17.26 20.07,19.07L18.66,17.66C20.11,16.22 21,14.22 21,12C21,9.79 20.11,7.78 18.66,6.34L20.07,4.93M17.24,7.76C18.33,8.85 19,10.35 19,12C19,13.65 18.33,15.15 17.24,16.24L15.83,14.83C16.55,14.11 17,13.11 17,12C17,10.89 16.55,9.89 15.83,9.17L17.24,7.76M13,10A2,2 0 0,1 15,12A2,2 0 0,1 13,14A2,2 0 0,1 11,12A2,2 0 0,1 13,10M11.5,1A2.5,2.5 0 0,1 14,3.5V8H12V4H3V19H12V16H14V20.5A2.5,2.5 0 0,1 11.5,23H3.5A2.5,2.5 0 0,1 1,20.5V3.5A2.5,2.5 0 0,1 3.5,1H11.5Z","check":"M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z","chevron-down":"M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z","chevron-right":"M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z","chevron-up":"M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z","chip":"M6,4H18V5H21V7H18V9H21V11H18V13H21V15H18V17H21V19H18V20H6V19H3V17H6V15H3V13H6V11H3V9H6V7H3V5H6V4M11,15V18H12V15H11M13,15V18H14V15H13M15,15V18H16V15H15Z","close":"M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z","cog":"M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z","content-copy":"M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z","delete":"M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z","door":"M8,3C6.89,3 6,3.89 6,5V21H18V5C18,3.89 17.11,3 16,3H8M8,5H16V19H8V5M13,11V13H15V11H13Z","dots-vertical":"M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z","download":"M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z","filter-variant":"M6,13H18V11H6M3,6V8H21V6M10,18H14V16H10V18Z","gesture-tap-button":"M13 5C15.21 5 17 6.79 17 9C17 10.5 16.2 11.77 15 12.46V11.24C15.61 10.69 16 9.89 16 9C16 7.34 14.66 6 13 6S10 7.34 10 9C10 9.89 10.39 10.69 11 11.24V12.46C9.8 11.77 9 10.5 9 9C9 6.79 10.79 5 13 5M20 20.5C19.97 21.32 19.32 21.97 18.5 22H13C12.62 22 12.26 21.85 12 21.57L8 17.37L8.74 16.6C8.93 16.39 9.2 16.28 9.5 16.28H9.7L12 18V9C12 8.45 12.45 8 13 8S14 8.45 14 9V13.47L15.21 13.6L19.15 15.79C19.68 16.03 20 16.56 20 17.14V20.5M20 2H4C2.9 2 2 2.9 2 4V12C2 13.11 2.9 14 4 14H8V12L4 12L4 4H20L20 12H18V14H20V13.96L20.04 14C21.13 14 22 13.09 22 12V4C22 2.9 21.11 2 20 2Z","heart-pulse":"M7.5,4A5.5,5.5 0 0,0 2,9.5C2,10 2.09,10.5 2.22,11H6.3L7.57,7.63C7.87,6.83 9.05,6.75 9.43,7.63L11.5,13L12.09,11.58C12.22,11.25 12.57,11 13,11H21.78C21.91,10.5 22,10 22,9.5A5.5,5.5 0 0,0 16.5,4C14.64,4 13,4.93 12,6.34C11,4.93 9.36,4 7.5,4V4M3,12.5A1,1 0 0,0 2,13.5A1,1 0 0,0 3,14.5H5.44L11,20C12,20.9 12,20.9 13,20L18.56,14.5H21A1,1 0 0,0 22,13.5A1,1 0 0,0 21,12.5H13.4L12.47,14.8C12.07,15.81 10.92,15.67 10.55,14.83L8.5,9.5L7.54,11.83C7.39,12.21 7.05,12.5 6.6,12.5H3Z","help-circle-outline":"M11,18H13V16H11V18M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,6A4,4 0 0,0 8,10H10A2,2 0 0,1 12,8A2,2 0 0,1 14,10C14,12 11,11.75 11,15H13C13,12.75 16,12.5 16,10A4,4 0 0,0 12,6Z","history":"M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3","home-assistant":"M21.8,13H20V21H13V17.67L15.79,14.88L16.5,15C17.66,15 18.6,14.06 18.6,12.9C18.6,11.74 17.66,10.8 16.5,10.8A2.1,2.1 0 0,0 14.4,12.9L14.5,13.61L13,15.13V9.65C13.66,9.29 14.1,8.6 14.1,7.8A2.1,2.1 0 0,0 12,5.7A2.1,2.1 0 0,0 9.9,7.8C9.9,8.6 10.34,9.29 11,9.65V15.13L9.5,13.61L9.6,12.9A2.1,2.1 0 0,0 7.5,10.8A2.1,2.1 0 0,0 5.4,12.9A2.1,2.1 0 0,0 7.5,15L8.21,14.88L11,17.67V21H4V13H2.25C1.83,13 1.42,13 1.42,12.79C1.43,12.57 1.85,12.15 2.28,11.72L11,3C11.33,2.67 11.67,2.33 12,2.33C12.33,2.33 12.67,2.67 13,3L17,7V6H19V9L21.78,11.78C22.18,12.18 22.59,12.59 22.6,12.8C22.6,13 22.2,13 21.8,13M7.5,12A0.9,0.9 0 0,1 8.4,12.9A0.9,0.9 0 0,1 7.5,13.8A0.9,0.9 0 0,1 6.6,12.9A0.9,0.9 0 0,1 7.5,12M16.5,12C17,12 17.4,12.4 17.4,12.9C17.4,13.4 17,13.8 16.5,13.8A0.9,0.9 0 0,1 15.6,12.9A0.9,0.9 0 0,1 16.5,12M12,6.9C12.5,6.9 12.9,7.3 12.9,7.8C12.9,8.3 12.5,8.7 12,8.7C11.5,8.7 11.1,8.3 11.1,7.8C11.1,7.3 11.5,6.9 12,6.9Z","information-outline":"M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z","lan-disconnect":"M4,1C2.89,1 2,1.89 2,3V7C2,8.11 2.89,9 4,9H1V11H13V9H10C11.11,9 12,8.11 12,7V3C12,1.89 11.11,1 10,1H4M4,3H10V7H4V3M14,13C12.89,13 12,13.89 12,15V19C12,20.11 12.89,21 14,21H11V23H23V21H20C21.11,21 22,20.11 22,19V15C22,13.89 21.11,13 20,13H14M3.88,13.46L2.46,14.88L4.59,17L2.46,19.12L3.88,20.54L6,18.41L8.12,20.54L9.54,19.12L7.41,17L9.54,14.88L8.12,13.46L6,15.59L3.88,13.46M14,15H20V19H14V15Z","light-switch":"M8 6V18H16V6H8M14 10H10V8H14V10M19.4 1.6C19 1.2 18.5 1 18 1H6C5.5 1 5 1.2 4.6 1.6C4.2 2 4 2.5 4 3V21C4 21.5 4.2 22 4.6 22.4C5 22.8 5.5 23 6 23H18C18.5 23 19 22.8 19.4 22.4C19.8 22 20 21.5 20 21V3C20 2.5 19.8 2 19.4 1.6M18 21H6V3H18V21Z","lightbulb":"M12,2A7,7 0 0,0 5,9C5,11.38 6.19,13.47 8,14.74V17A1,1 0 0,0 9,18H15A1,1 0 0,0 16,17V14.74C17.81,13.47 19,11.38 19,9A7,7 0 0,0 12,2M9,21A1,1 0 0,0 10,22H14A1,1 0 0,0 15,21V20H9V21Z","link-variant":"M10.59,13.41C11,13.8 11,14.44 10.59,14.83C10.2,15.22 9.56,15.22 9.17,14.83C7.22,12.88 7.22,9.71 9.17,7.76V7.76L12.71,4.22C14.66,2.27 17.83,2.27 19.78,4.22C21.73,6.17 21.73,9.34 19.78,11.29L18.29,12.78C18.3,11.96 18.17,11.14 17.89,10.36L18.36,9.88C19.54,8.71 19.54,6.81 18.36,5.64C17.19,4.46 15.29,4.46 14.12,5.64L10.59,9.17C9.41,10.34 9.41,12.24 10.59,13.41M13.41,9.17C13.8,8.78 14.44,8.78 14.83,9.17C16.78,11.12 16.78,14.29 14.83,16.24V16.24L11.29,19.78C9.34,21.73 6.17,21.73 4.22,19.78C2.27,17.83 2.27,14.66 4.22,12.71L5.71,11.22C5.7,12.04 5.83,12.86 6.11,13.65L5.64,14.12C4.46,15.29 4.46,17.19 5.64,18.36C6.81,19.54 8.71,19.54 9.88,18.36L13.41,14.83C14.59,13.66 14.59,11.76 13.41,10.59C13,10.2 13,9.56 13.41,9.17Z","magnify":"M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z","map-marker-outline":"M12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5M12,2A7,7 0 0,1 19,9C19,14.25 12,22 12,22C12,22 5,14.25 5,9A7,7 0 0,1 12,2M12,4A5,5 0 0,0 7,9C7,10 7,12 12,18.71C17,12 17,10 17,9A5,5 0 0,0 12,4Z","meter-electric":"M12 2C7.04 2 3 6.04 3 11C3 14.91 5.5 18.24 9 19.47V22H11V19.94C11.33 20 11.66 20 12 20S12.67 20 13 19.94V22H15V19.47C18.5 18.23 21 14.9 21 11C21 6.04 16.96 2 12 2M14.25 14L11.25 17L9.75 15.5L11 14.25L9.75 13L12.75 10L14.25 11.5L13 12.75L14.25 14M16 9H8V7H16V9Z","minus":"M19,13H5V11H19V13Z","motion-sensor":"M10,0.2C9,0.2 8.2,1 8.2,2C8.2,3 9,3.8 10,3.8C11,3.8 11.8,3 11.8,2C11.8,1 11,0.2 10,0.2M15.67,1A7.33,7.33 0 0,0 23,8.33V7A6,6 0 0,1 17,1H15.67M18.33,1C18.33,3.58 20.42,5.67 23,5.67V4.33C21.16,4.33 19.67,2.84 19.67,1H18.33M21,1A2,2 0 0,0 23,3V1H21M7.92,4.03C7.75,4.03 7.58,4.06 7.42,4.11L2,5.8V11H3.8V7.33L5.91,6.67L2,22H3.8L6.67,13.89L9,17V22H10.8V15.59L8.31,11.05L9.04,8.18L10.12,10H15V8.2H11.38L9.38,4.87C9.08,4.37 8.54,4.03 7.92,4.03Z","note-text-outline":"M15 3H5A2 2 0 0 0 3 5V19A2 2 0 0 0 5 21H19A2 2 0 0 0 21 19V9L15 3M19 19H5V5H14V10H19M17 14H7V12H17M14 17H7V15H14","open-in-new":"M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z","pencil":"M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z","play":"M8,5.14V19.14L19,12.14L8,5.14Z","plus":"M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z","power-plug-outline":"M16 7V3H14V7H10V3H8V7C7 7 6 8 6 9V14.5L9.5 18V21H14.5V18L18 14.5V9C18 8 17 7 16 7M16 13.67L13.09 16.59L12.67 17H11.33L10.92 16.59L8 13.67V9.09C8 9.06 8.06 9 8.09 9H15.92C15.95 9 16 9.06 16 9.09V13.67Z","power-plug":"M16,7V3H14V7H10V3H8V7H8C7,7 6,8 6,9V14.5L9.5,18V21H14.5V18L18,14.5V9C18,8 17,7 16,7Z","radiator":"M7.95,3L6.53,5.19L7.95,7.4H7.94L5.95,10.5L4.22,9.6L5.64,7.39L4.22,5.19L6.22,2.09L7.95,3M13.95,2.89L12.53,5.1L13.95,7.3L13.94,7.31L11.95,10.4L10.22,9.5L11.64,7.3L10.22,5.1L12.22,2L13.95,2.89M20,2.89L18.56,5.1L20,7.3V7.31L18,10.4L16.25,9.5L17.67,7.3L16.25,5.1L18.25,2L20,2.89M2,22V14A2,2 0 0,1 4,12H20A2,2 0 0,1 22,14V22H20V20H4V22H2M6,14A1,1 0 0,0 5,15V17A1,1 0 0,0 6,18A1,1 0 0,0 7,17V15A1,1 0 0,0 6,14M10,14A1,1 0 0,0 9,15V17A1,1 0 0,0 10,18A1,1 0 0,0 11,17V15A1,1 0 0,0 10,14M14,14A1,1 0 0,0 13,15V17A1,1 0 0,0 14,18A1,1 0 0,0 15,17V15A1,1 0 0,0 14,14M18,14A1,1 0 0,0 17,15V17A1,1 0 0,0 18,18A1,1 0 0,0 19,17V15A1,1 0 0,0 18,14Z","refresh":"M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z","router-wireless":"M20.2,5.9L21,5.1C19.6,3.7 17.8,3 16,3C14.2,3 12.4,3.7 11,5.1L11.8,5.9C13,4.8 14.5,4.2 16,4.2C17.5,4.2 19,4.8 20.2,5.9M19.3,6.7C18.4,5.8 17.2,5.3 16,5.3C14.8,5.3 13.6,5.8 12.7,6.7L13.5,7.5C14.2,6.8 15.1,6.5 16,6.5C16.9,6.5 17.8,6.8 18.5,7.5L19.3,6.7M19,13H17V9H15V13H5A2,2 0 0,0 3,15V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V15A2,2 0 0,0 19,13M8,18H6V16H8V18M11.5,18H9.5V16H11.5V18M15,18H13V16H15V18Z","signal":"M3,21H6V18H3M8,21H11V14H8M13,21H16V9H13M18,21H21V3H18V21Z","sitemap":"M9,2V8H11V11H5C3.89,11 3,11.89 3,13V16H1V22H7V16H5V13H11V16H9V22H15V16H13V13H19V16H17V22H23V16H21V13C21,11.89 20.11,11 19,11H13V8H15V2H9Z","smoke-detector":"M12,18A6,6 0 0,0 18,12C18,8.68 15.31,6 12,6C8.68,6 6,8.68 6,12A6,6 0 0,0 12,18M19,3A2,2 0 0,1 21,5V19A2,2 0 0,1 19,21H5C3.89,21 3,20.1 3,19V5C3,3.89 3.89,3 5,3H19M8,12A4,4 0 0,1 12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12Z","sort-alphabetical-ascending":"M19 17H22L18 21L14 17H17V3H19M11 13V15L7.67 19H11V21H5V19L8.33 15H5V13M9 3H7C5.9 3 5 3.9 5 5V11H7V9H9V11H11V5C11 3.9 10.11 3 9 3M9 7H7V5H9Z","swap-horizontal":"M21,9L17,5V8H10V10H17V13M7,11L3,15L7,19V16H14V14H7V11Z","thermometer":"M15 13V5A3 3 0 0 0 9 5V13A5 5 0 1 0 15 13M12 4A1 1 0 0 1 13 5V8H11V5A1 1 0 0 1 12 4Z","thermostat":"M16.95,16.95L14.83,14.83C15.55,14.1 16,13.1 16,12C16,11.26 15.79,10.57 15.43,10L17.6,7.81C18.5,9 19,10.43 19,12C19,13.93 18.22,15.68 16.95,16.95M12,5C13.57,5 15,5.5 16.19,6.4L14,8.56C13.43,8.21 12.74,8 12,8A4,4 0 0,0 8,12C8,13.1 8.45,14.1 9.17,14.83L7.05,16.95C5.78,15.68 5,13.93 5,12A7,7 0 0,1 12,5M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12C22,6.47 17.5,2 12,2Z","update":"M21,10.12H14.22L16.96,7.3C14.23,4.6 9.81,4.5 7.08,7.2C4.35,9.91 4.35,14.28 7.08,17C9.81,19.7 14.23,19.7 16.96,17C18.32,15.65 19,14.08 19,12.1H21C21,14.08 20.12,16.65 18.36,18.39C14.85,21.87 9.15,21.87 5.64,18.39C2.14,14.92 2.11,9.28 5.62,5.81C9.13,2.34 14.76,2.34 18.27,5.81L21,3V10.12M12.5,8V12.25L16,14.33L15.28,15.54L11,13V8H12.5Z","wifi-off":"M2.28,3L1,4.27L2.47,5.74C2.04,6 1.61,6.29 1.2,6.6L3,9C3.53,8.6 4.08,8.25 4.66,7.93L6.89,10.16C6.15,10.5 5.44,10.91 4.8,11.4L6.6,13.8C7.38,13.22 8.26,12.77 9.2,12.47L11.75,15C10.5,15.07 9.34,15.5 8.4,16.2L12,21L14.46,17.73L17.74,21L19,19.72M12,3C9.85,3 7.8,3.38 5.9,4.07L8.29,6.47C9.5,6.16 10.72,6 12,6C15.38,6 18.5,7.11 21,9L22.8,6.6C19.79,4.34 16.06,3 12,3M12,9C11.62,9 11.25,9 10.88,9.05L14.07,12.25C15.29,12.53 16.43,13.07 17.4,13.8L19.2,11.4C17.2,9.89 14.7,9 12,9Z","wifi":"M12,21L15.6,16.2C14.6,15.45 13.35,15 12,15C10.65,15 9.4,15.45 8.4,16.2L12,21M12,3C7.95,3 4.21,4.34 1.2,6.6L3,9C5.5,7.12 8.62,6 12,6C15.38,6 18.5,7.12 21,9L22.8,6.6C19.79,4.34 16.05,3 12,3M12,9C9.3,9 6.81,9.89 4.8,11.4L6.6,13.8C8.1,12.67 9.97,12 12,12C14.03,12 15.9,12.67 17.4,13.8L19.2,11.4C17.19,9.89 14.7,9 12,9Z","window-closed-variant":"M21 20V2H3V20H1V23H23V20M19 4V11H13V4M5 4H11V11H5M5 20V13H11V20M13 20V13H19V20Z","zigbee":"M4.06,6.15C3.97,6.17 3.88,6.22 3.8,6.28C2.66,7.9 2,9.87 2,12A10,10 0 0,0 12,22C15,22 17.68,20.68 19.5,18.6L17,18.85C14.25,19.15 11.45,19.19 8.66,18.96C7.95,18.94 7.24,18.76 6.59,18.45C5.73,18.06 5.15,17.23 5.07,16.29C5.06,16.13 5.12,16 5.23,15.87L7.42,13.6L15.03,5.7V5.6H10.84C8.57,5.64 6.31,5.82 4.06,6.15M20.17,17.5C20.26,17.47 20.35,17.44 20.43,17.39C21.42,15.83 22,14 22,12A10,10 0 0,0 12,2C9.22,2 6.7,3.13 4.89,4.97H5.17C8.28,4.57 11.43,4.47 14.56,4.65C15.5,4.64 16.45,4.82 17.33,5.17C18.25,5.53 18.89,6.38 19,7.37C19,7.53 18.93,7.7 18.82,7.82L9.71,17.19L9,17.95V18.06H13.14C15.5,18 17.84,17.81 20.17,17.5Z"};
+  const MDI = {"tune":"M3,17V19H9V17H3M3,5V7H13V5H3M13,21V19H21V17H13V15H11V21H13M7,9V11H3V13H7V15H9V9H7M21,13V11H11V13H21M15,9H17V7H21V5H17V3H15V9Z","alert-circle":"M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z","alert":"M13 14H11V9H13M13 18H11V16H13M1 21H23L12 2L1 21Z","arrow-down":"M11,4H13V16L18.5,10.5L19.92,11.92L12,19.84L4.08,11.92L5.5,10.5L11,16V4Z","arrow-up":"M13,20H11V8L5.5,13.5L4.08,12.08L12,4.16L19.92,12.08L18.5,13.5L13,8V20Z","battery-alert-variant-outline":"M14 20H6V6H14M14.67 4H13V2H7V4H5.33C4.6 4 4 4.6 4 5.33V20.67C4 21.4 4.6 22 5.33 22H14.67C15.4 22 16 21.4 16 20.67V5.33C16 4.6 15.4 4 14.67 4M21 7H19V13H21V8M21 15H19V17H21V15Z","battery-sync":"M13.54 22H7.33C6.6 22 6 21.4 6 20.67V5.33C6 4.6 6.6 4 7.33 4H9V2H15V4H16.67C17.4 4 18 4.6 18 5.33V12C14.69 12 12 14.69 12 18C12 19.54 12.58 20.94 13.54 22M18 13L20.25 15.25L18 17.5V16C16.15 16 14.94 17.96 15.76 19.62L14.67 20.71C12.91 18.05 14.81 14.5 18 14.5V13M18 24L15.75 21.75L18 19.5V21C19.85 21 21.06 19.04 20.24 17.38L21.33 16.29C23.09 18.95 21.19 22.5 18 22.5V24","battery":"M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z","bell-off":"M20.84,22.73L18.11,20H3V19L5,17V11C5,9.86 5.29,8.73 5.83,7.72L1.11,3L2.39,1.73L22.11,21.46L20.84,22.73M19,15.8V11C19,7.9 16.97,5.17 14,4.29C14,4.19 14,4.1 14,4A2,2 0 0,0 12,2A2,2 0 0,0 10,4C10,4.1 10,4.19 10,4.29C9.39,4.47 8.8,4.74 8.26,5.09L19,15.8M12,23A2,2 0 0,0 14,21H10A2,2 0 0,0 12,23Z","bell":"M21,19V20H3V19L5,17V11C5,7.9 7.03,5.17 10,4.29C10,4.19 10,4.1 10,4A2,2 0 0,1 12,2A2,2 0 0,1 14,4C14,4.1 14,4.19 14,4.29C16.97,5.17 19,7.9 19,11V17L21,19M14,21A2,2 0 0,1 12,23A2,2 0 0,1 10,21","calendar-clock":"M15,13H16.5V15.82L18.94,17.23L18.19,18.53L15,16.69V13M19,8H5V19H9.67C9.24,18.09 9,17.07 9,16A7,7 0 0,1 16,9C17.07,9 18.09,9.24 19,9.67V8M5,21C3.89,21 3,20.1 3,19V5C3,3.89 3.89,3 5,3H6V1H8V3H16V1H18V3H19A2,2 0 0,1 21,5V11.1C22.24,12.36 23,14.09 23,16A7,7 0 0,1 16,23C14.09,23 12.36,22.24 11.1,21H5M16,11.15A4.85,4.85 0 0,0 11.15,16C11.15,18.68 13.32,20.85 16,20.85A4.85,4.85 0 0,0 20.85,16C20.85,13.32 18.68,11.15 16,11.15Z","cellphone-wireless":"M20.07,4.93C21.88,6.74 23,9.24 23,12C23,14.76 21.88,17.26 20.07,19.07L18.66,17.66C20.11,16.22 21,14.22 21,12C21,9.79 20.11,7.78 18.66,6.34L20.07,4.93M17.24,7.76C18.33,8.85 19,10.35 19,12C19,13.65 18.33,15.15 17.24,16.24L15.83,14.83C16.55,14.11 17,13.11 17,12C17,10.89 16.55,9.89 15.83,9.17L17.24,7.76M13,10A2,2 0 0,1 15,12A2,2 0 0,1 13,14A2,2 0 0,1 11,12A2,2 0 0,1 13,10M11.5,1A2.5,2.5 0 0,1 14,3.5V8H12V4H3V19H12V16H14V20.5A2.5,2.5 0 0,1 11.5,23H3.5A2.5,2.5 0 0,1 1,20.5V3.5A2.5,2.5 0 0,1 3.5,1H11.5Z","check":"M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z","chevron-down":"M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z","chevron-right":"M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z","chevron-up":"M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z","chip":"M6,4H18V5H21V7H18V9H21V11H18V13H21V15H18V17H21V19H18V20H6V19H3V17H6V15H3V13H6V11H3V9H6V7H3V5H6V4M11,15V18H12V15H11M13,15V18H14V15H13M15,15V18H16V15H15Z","close":"M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z","cog":"M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z","content-copy":"M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z","delete":"M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z","door":"M8,3C6.89,3 6,3.89 6,5V21H18V5C18,3.89 17.11,3 16,3H8M8,5H16V19H8V5M13,11V13H15V11H13Z","dots-vertical":"M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z","download":"M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z","filter-variant":"M6,13H18V11H6M3,6V8H21V6M10,18H14V16H10V18Z","gesture-tap-button":"M13 5C15.21 5 17 6.79 17 9C17 10.5 16.2 11.77 15 12.46V11.24C15.61 10.69 16 9.89 16 9C16 7.34 14.66 6 13 6S10 7.34 10 9C10 9.89 10.39 10.69 11 11.24V12.46C9.8 11.77 9 10.5 9 9C9 6.79 10.79 5 13 5M20 20.5C19.97 21.32 19.32 21.97 18.5 22H13C12.62 22 12.26 21.85 12 21.57L8 17.37L8.74 16.6C8.93 16.39 9.2 16.28 9.5 16.28H9.7L12 18V9C12 8.45 12.45 8 13 8S14 8.45 14 9V13.47L15.21 13.6L19.15 15.79C19.68 16.03 20 16.56 20 17.14V20.5M20 2H4C2.9 2 2 2.9 2 4V12C2 13.11 2.9 14 4 14H8V12L4 12L4 4H20L20 12H18V14H20V13.96L20.04 14C21.13 14 22 13.09 22 12V4C22 2.9 21.11 2 20 2Z","heart-pulse":"M7.5,4A5.5,5.5 0 0,0 2,9.5C2,10 2.09,10.5 2.22,11H6.3L7.57,7.63C7.87,6.83 9.05,6.75 9.43,7.63L11.5,13L12.09,11.58C12.22,11.25 12.57,11 13,11H21.78C21.91,10.5 22,10 22,9.5A5.5,5.5 0 0,0 16.5,4C14.64,4 13,4.93 12,6.34C11,4.93 9.36,4 7.5,4V4M3,12.5A1,1 0 0,0 2,13.5A1,1 0 0,0 3,14.5H5.44L11,20C12,20.9 12,20.9 13,20L18.56,14.5H21A1,1 0 0,0 22,13.5A1,1 0 0,0 21,12.5H13.4L12.47,14.8C12.07,15.81 10.92,15.67 10.55,14.83L8.5,9.5L7.54,11.83C7.39,12.21 7.05,12.5 6.6,12.5H3Z","help-circle-outline":"M11,18H13V16H11V18M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,6A4,4 0 0,0 8,10H10A2,2 0 0,1 12,8A2,2 0 0,1 14,10C14,12 11,11.75 11,15H13C13,12.75 16,12.5 16,10A4,4 0 0,0 12,6Z","history":"M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3","home-assistant":"M21.8,13H20V21H13V17.67L15.79,14.88L16.5,15C17.66,15 18.6,14.06 18.6,12.9C18.6,11.74 17.66,10.8 16.5,10.8A2.1,2.1 0 0,0 14.4,12.9L14.5,13.61L13,15.13V9.65C13.66,9.29 14.1,8.6 14.1,7.8A2.1,2.1 0 0,0 12,5.7A2.1,2.1 0 0,0 9.9,7.8C9.9,8.6 10.34,9.29 11,9.65V15.13L9.5,13.61L9.6,12.9A2.1,2.1 0 0,0 7.5,10.8A2.1,2.1 0 0,0 5.4,12.9A2.1,2.1 0 0,0 7.5,15L8.21,14.88L11,17.67V21H4V13H2.25C1.83,13 1.42,13 1.42,12.79C1.43,12.57 1.85,12.15 2.28,11.72L11,3C11.33,2.67 11.67,2.33 12,2.33C12.33,2.33 12.67,2.67 13,3L17,7V6H19V9L21.78,11.78C22.18,12.18 22.59,12.59 22.6,12.8C22.6,13 22.2,13 21.8,13M7.5,12A0.9,0.9 0 0,1 8.4,12.9A0.9,0.9 0 0,1 7.5,13.8A0.9,0.9 0 0,1 6.6,12.9A0.9,0.9 0 0,1 7.5,12M16.5,12C17,12 17.4,12.4 17.4,12.9C17.4,13.4 17,13.8 16.5,13.8A0.9,0.9 0 0,1 15.6,12.9A0.9,0.9 0 0,1 16.5,12M12,6.9C12.5,6.9 12.9,7.3 12.9,7.8C12.9,8.3 12.5,8.7 12,8.7C11.5,8.7 11.1,8.3 11.1,7.8C11.1,7.3 11.5,6.9 12,6.9Z","information-outline":"M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z","lan-disconnect":"M4,1C2.89,1 2,1.89 2,3V7C2,8.11 2.89,9 4,9H1V11H13V9H10C11.11,9 12,8.11 12,7V3C12,1.89 11.11,1 10,1H4M4,3H10V7H4V3M14,13C12.89,13 12,13.89 12,15V19C12,20.11 12.89,21 14,21H11V23H23V21H20C21.11,21 22,20.11 22,19V15C22,13.89 21.11,13 20,13H14M3.88,13.46L2.46,14.88L4.59,17L2.46,19.12L3.88,20.54L6,18.41L8.12,20.54L9.54,19.12L7.41,17L9.54,14.88L8.12,13.46L6,15.59L3.88,13.46M14,15H20V19H14V15Z","light-switch":"M8 6V18H16V6H8M14 10H10V8H14V10M19.4 1.6C19 1.2 18.5 1 18 1H6C5.5 1 5 1.2 4.6 1.6C4.2 2 4 2.5 4 3V21C4 21.5 4.2 22 4.6 22.4C5 22.8 5.5 23 6 23H18C18.5 23 19 22.8 19.4 22.4C19.8 22 20 21.5 20 21V3C20 2.5 19.8 2 19.4 1.6M18 21H6V3H18V21Z","lightbulb":"M12,2A7,7 0 0,0 5,9C5,11.38 6.19,13.47 8,14.74V17A1,1 0 0,0 9,18H15A1,1 0 0,0 16,17V14.74C17.81,13.47 19,11.38 19,9A7,7 0 0,0 12,2M9,21A1,1 0 0,0 10,22H14A1,1 0 0,0 15,21V20H9V21Z","link-variant":"M10.59,13.41C11,13.8 11,14.44 10.59,14.83C10.2,15.22 9.56,15.22 9.17,14.83C7.22,12.88 7.22,9.71 9.17,7.76V7.76L12.71,4.22C14.66,2.27 17.83,2.27 19.78,4.22C21.73,6.17 21.73,9.34 19.78,11.29L18.29,12.78C18.3,11.96 18.17,11.14 17.89,10.36L18.36,9.88C19.54,8.71 19.54,6.81 18.36,5.64C17.19,4.46 15.29,4.46 14.12,5.64L10.59,9.17C9.41,10.34 9.41,12.24 10.59,13.41M13.41,9.17C13.8,8.78 14.44,8.78 14.83,9.17C16.78,11.12 16.78,14.29 14.83,16.24V16.24L11.29,19.78C9.34,21.73 6.17,21.73 4.22,19.78C2.27,17.83 2.27,14.66 4.22,12.71L5.71,11.22C5.7,12.04 5.83,12.86 6.11,13.65L5.64,14.12C4.46,15.29 4.46,17.19 5.64,18.36C6.81,19.54 8.71,19.54 9.88,18.36L13.41,14.83C14.59,13.66 14.59,11.76 13.41,10.59C13,10.2 13,9.56 13.41,9.17Z","magnify":"M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z","map-marker-outline":"M12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5M12,2A7,7 0 0,1 19,9C19,14.25 12,22 12,22C12,22 5,14.25 5,9A7,7 0 0,1 12,2M12,4A5,5 0 0,0 7,9C7,10 7,12 12,18.71C17,12 17,10 17,9A5,5 0 0,0 12,4Z","meter-electric":"M12 2C7.04 2 3 6.04 3 11C3 14.91 5.5 18.24 9 19.47V22H11V19.94C11.33 20 11.66 20 12 20S12.67 20 13 19.94V22H15V19.47C18.5 18.23 21 14.9 21 11C21 6.04 16.96 2 12 2M14.25 14L11.25 17L9.75 15.5L11 14.25L9.75 13L12.75 10L14.25 11.5L13 12.75L14.25 14M16 9H8V7H16V9Z","minus":"M19,13H5V11H19V13Z","motion-sensor":"M10,0.2C9,0.2 8.2,1 8.2,2C8.2,3 9,3.8 10,3.8C11,3.8 11.8,3 11.8,2C11.8,1 11,0.2 10,0.2M15.67,1A7.33,7.33 0 0,0 23,8.33V7A6,6 0 0,1 17,1H15.67M18.33,1C18.33,3.58 20.42,5.67 23,5.67V4.33C21.16,4.33 19.67,2.84 19.67,1H18.33M21,1A2,2 0 0,0 23,3V1H21M7.92,4.03C7.75,4.03 7.58,4.06 7.42,4.11L2,5.8V11H3.8V7.33L5.91,6.67L2,22H3.8L6.67,13.89L9,17V22H10.8V15.59L8.31,11.05L9.04,8.18L10.12,10H15V8.2H11.38L9.38,4.87C9.08,4.37 8.54,4.03 7.92,4.03Z","note-text-outline":"M15 3H5A2 2 0 0 0 3 5V19A2 2 0 0 0 5 21H19A2 2 0 0 0 21 19V9L15 3M19 19H5V5H14V10H19M17 14H7V12H17M14 17H7V15H14","open-in-new":"M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z","pencil":"M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z","play":"M8,5.14V19.14L19,12.14L8,5.14Z","plus":"M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z","power-plug-outline":"M16 7V3H14V7H10V3H8V7C7 7 6 8 6 9V14.5L9.5 18V21H14.5V18L18 14.5V9C18 8 17 7 16 7M16 13.67L13.09 16.59L12.67 17H11.33L10.92 16.59L8 13.67V9.09C8 9.06 8.06 9 8.09 9H15.92C15.95 9 16 9.06 16 9.09V13.67Z","power-plug":"M16,7V3H14V7H10V3H8V7H8C7,7 6,8 6,9V14.5L9.5,18V21H14.5V18L18,14.5V9C18,8 17,7 16,7Z","radiator":"M7.95,3L6.53,5.19L7.95,7.4H7.94L5.95,10.5L4.22,9.6L5.64,7.39L4.22,5.19L6.22,2.09L7.95,3M13.95,2.89L12.53,5.1L13.95,7.3L13.94,7.31L11.95,10.4L10.22,9.5L11.64,7.3L10.22,5.1L12.22,2L13.95,2.89M20,2.89L18.56,5.1L20,7.3V7.31L18,10.4L16.25,9.5L17.67,7.3L16.25,5.1L18.25,2L20,2.89M2,22V14A2,2 0 0,1 4,12H20A2,2 0 0,1 22,14V22H20V20H4V22H2M6,14A1,1 0 0,0 5,15V17A1,1 0 0,0 6,18A1,1 0 0,0 7,17V15A1,1 0 0,0 6,14M10,14A1,1 0 0,0 9,15V17A1,1 0 0,0 10,18A1,1 0 0,0 11,17V15A1,1 0 0,0 10,14M14,14A1,1 0 0,0 13,15V17A1,1 0 0,0 14,18A1,1 0 0,0 15,17V15A1,1 0 0,0 14,14M18,14A1,1 0 0,0 17,15V17A1,1 0 0,0 18,18A1,1 0 0,0 19,17V15A1,1 0 0,0 18,14Z","refresh":"M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z","robot-outline":"M17.5 15.5C17.5 16.61 16.61 17.5 15.5 17.5S13.5 16.61 13.5 15.5 14.4 13.5 15.5 13.5 17.5 14.4 17.5 15.5M8.5 13.5C7.4 13.5 6.5 14.4 6.5 15.5S7.4 17.5 8.5 17.5 10.5 16.61 10.5 15.5 9.61 13.5 8.5 13.5M23 15V18C23 18.55 22.55 19 22 19H21V20C21 21.11 20.11 22 19 22H5C3.9 22 3 21.11 3 20V19H2C1.45 19 1 18.55 1 18V15C1 14.45 1.45 14 2 14H3C3 10.13 6.13 7 10 7H11V5.73C10.4 5.39 10 4.74 10 4C10 2.9 10.9 2 12 2S14 2.9 14 4C14 4.74 13.6 5.39 13 5.73V7H14C17.87 7 21 10.13 21 14H22C22.55 14 23 14.45 23 15M21 16H19V14C19 11.24 16.76 9 14 9H10C7.24 9 5 11.24 5 14V16H3V17H5V20H19V17H21V16Z","router-wireless":"M20.2,5.9L21,5.1C19.6,3.7 17.8,3 16,3C14.2,3 12.4,3.7 11,5.1L11.8,5.9C13,4.8 14.5,4.2 16,4.2C17.5,4.2 19,4.8 20.2,5.9M19.3,6.7C18.4,5.8 17.2,5.3 16,5.3C14.8,5.3 13.6,5.8 12.7,6.7L13.5,7.5C14.2,6.8 15.1,6.5 16,6.5C16.9,6.5 17.8,6.8 18.5,7.5L19.3,6.7M19,13H17V9H15V13H5A2,2 0 0,0 3,15V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V15A2,2 0 0,0 19,13M8,18H6V16H8V18M11.5,18H9.5V16H11.5V18M15,18H13V16H15V18Z","signal":"M3,21H6V18H3M8,21H11V14H8M13,21H16V9H13M18,21H21V3H18V21Z","sitemap":"M9,2V8H11V11H5C3.89,11 3,11.89 3,13V16H1V22H7V16H5V13H11V16H9V22H15V16H13V13H19V16H17V22H23V16H21V13C21,11.89 20.11,11 19,11H13V8H15V2H9Z","smoke-detector":"M12,18A6,6 0 0,0 18,12C18,8.68 15.31,6 12,6C8.68,6 6,8.68 6,12A6,6 0 0,0 12,18M19,3A2,2 0 0,1 21,5V19A2,2 0 0,1 19,21H5C3.89,21 3,20.1 3,19V5C3,3.89 3.89,3 5,3H19M8,12A4,4 0 0,1 12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12Z","sort-alphabetical-ascending":"M19 17H22L18 21L14 17H17V3H19M11 13V15L7.67 19H11V21H5V19L8.33 15H5V13M9 3H7C5.9 3 5 3.9 5 5V11H7V9H9V11H11V5C11 3.9 10.11 3 9 3M9 7H7V5H9Z","swap-horizontal":"M21,9L17,5V8H10V10H17V13M7,11L3,15L7,19V16H14V14H7V11Z","thermometer":"M15 13V5A3 3 0 0 0 9 5V13A5 5 0 1 0 15 13M12 4A1 1 0 0 1 13 5V8H11V5A1 1 0 0 1 12 4Z","thermostat":"M16.95,16.95L14.83,14.83C15.55,14.1 16,13.1 16,12C16,11.26 15.79,10.57 15.43,10L17.6,7.81C18.5,9 19,10.43 19,12C19,13.93 18.22,15.68 16.95,16.95M12,5C13.57,5 15,5.5 16.19,6.4L14,8.56C13.43,8.21 12.74,8 12,8A4,4 0 0,0 8,12C8,13.1 8.45,14.1 9.17,14.83L7.05,16.95C5.78,15.68 5,13.93 5,12A7,7 0 0,1 12,5M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12C22,6.47 17.5,2 12,2Z","update":"M21,10.12H14.22L16.96,7.3C14.23,4.6 9.81,4.5 7.08,7.2C4.35,9.91 4.35,14.28 7.08,17C9.81,19.7 14.23,19.7 16.96,17C18.32,15.65 19,14.08 19,12.1H21C21,14.08 20.12,16.65 18.36,18.39C14.85,21.87 9.15,21.87 5.64,18.39C2.14,14.92 2.11,9.28 5.62,5.81C9.13,2.34 14.76,2.34 18.27,5.81L21,3V10.12M12.5,8V12.25L16,14.33L15.28,15.54L11,13V8H12.5Z","wifi-off":"M2.28,3L1,4.27L2.47,5.74C2.04,6 1.61,6.29 1.2,6.6L3,9C3.53,8.6 4.08,8.25 4.66,7.93L6.89,10.16C6.15,10.5 5.44,10.91 4.8,11.4L6.6,13.8C7.38,13.22 8.26,12.77 9.2,12.47L11.75,15C10.5,15.07 9.34,15.5 8.4,16.2L12,21L14.46,17.73L17.74,21L19,19.72M12,3C9.85,3 7.8,3.38 5.9,4.07L8.29,6.47C9.5,6.16 10.72,6 12,6C15.38,6 18.5,7.11 21,9L22.8,6.6C19.79,4.34 16.06,3 12,3M12,9C11.62,9 11.25,9 10.88,9.05L14.07,12.25C15.29,12.53 16.43,13.07 17.4,13.8L19.2,11.4C17.2,9.89 14.7,9 12,9Z","wifi":"M12,21L15.6,16.2C14.6,15.45 13.35,15 12,15C10.65,15 9.4,15.45 8.4,16.2L12,21M12,3C7.95,3 4.21,4.34 1.2,6.6L3,9C5.5,7.12 8.62,6 12,6C15.38,6 18.5,7.12 21,9L22.8,6.6C19.79,4.34 16.05,3 12,3M12,9C9.3,9 6.81,9.89 4.8,11.4L6.6,13.8C8.1,12.67 9.97,12 12,12C14.03,12 15.9,12.67 17.4,13.8L19.2,11.4C17.19,9.89 14.7,9 12,9Z","window-closed-variant":"M21 20V2H3V20H1V23H23V20M19 4V11H13V4M5 4H11V11H5M5 20V13H11V20M13 20V13H19V20Z","zigbee":"M4.06,6.15C3.97,6.17 3.88,6.22 3.8,6.28C2.66,7.9 2,9.87 2,12A10,10 0 0,0 12,22C15,22 17.68,20.68 19.5,18.6L17,18.85C14.25,19.15 11.45,19.19 8.66,18.96C7.95,18.94 7.24,18.76 6.59,18.45C5.73,18.06 5.15,17.23 5.07,16.29C5.06,16.13 5.12,16 5.23,15.87L7.42,13.6L15.03,5.7V5.6H10.84C8.57,5.64 6.31,5.82 4.06,6.15M20.17,17.5C20.26,17.47 20.35,17.44 20.43,17.39C21.42,15.83 22,14 22,12A10,10 0 0,0 12,2C9.22,2 6.7,3.13 4.89,4.97H5.17C8.28,4.57 11.43,4.47 14.56,4.65C15.5,4.64 16.45,4.82 17.33,5.17C18.25,5.53 18.89,6.38 19,7.37C19,7.53 18.93,7.7 18.82,7.82L9.71,17.19L9,17.95V18.06H13.14C15.5,18 17.84,17.81 20.17,17.5Z"};
   const ic = (name, cls = "") => `<svg class="mdi ${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${MDI[name] || MDI["help-circle-outline"]}"/></svg>`;
   document.querySelectorAll("[data-i]").forEach((el) => { el.outerHTML = ic(el.dataset.i, el.closest(".chip") ? "s18" : ""); });
   document.getElementById("logo").innerHTML = ic("zigbee");
@@ -794,14 +908,15 @@
     removed: { get label() { return t("status.removed"); }, c: "var(--disabled)" },
   };
   const KIND_ICON = { offline: "wifi-off", silent: "wifi-off", late: "history", frozen: "thermometer", weak_signal: "signal", signal_drop: "signal", battery_low: "battery-alert-variant-outline", battery_soon: "battery-alert-variant-outline", update: "chip", unidentified: "help-circle-outline", replacement: "link-variant",
-    flapping: "swap-horizontal", chatty: "signal", battery_drain: "battery-alert-variant-outline", binding_lost: "link-variant", single_point: "router-wireless", router_hopping: "swap-horizontal", coordinator_backup: "download", z2m_memory: "chip", signal_dip: "signal", group_member_offline: "lightbulb", slow_router: "router-wireless" };
+    flapping: "swap-horizontal", chatty: "signal", battery_drain: "battery-alert-variant-outline", binding_lost: "link-variant", single_point: "router-wireless", router_hopping: "swap-horizontal", coordinator_backup: "download", z2m_memory: "chip", signal_dip: "signal", group_member_offline: "lightbulb", slow_router: "router-wireless", maintenance_due: "calendar-clock", upgrade_worse: "update", slow_commands: "history", missed_commands: "gesture-tap-button", reporting_config: "tune", naming: "pencil" };
   const EVENT_ICON = (k) => {
     if (k.startsWith("interview")) return k.endsWith("successful") ? ["check", "var(--success)"] : ["alert-circle", "var(--error)"];
     return ({ joined: ["plus", "var(--success)"], added: ["plus", "var(--success)"], rejoined: ["plus", "var(--success)"], online: ["wifi", "var(--success)"], offline: ["wifi-off", "var(--error)"],
       left: ["minus", "var(--warning)"], removed: ["delete", "var(--text-2)"], renamed: ["pencil", "var(--state-icon)"], "model changed": ["swap-horizontal", "var(--state-icon)"], moved: ["swap-horizontal", "var(--state-icon)"],
-      linked: ["link-variant", "var(--state-icon)"], replaced: ["swap-horizontal", "var(--state-icon)"], "replaced by": ["swap-horizontal", "var(--text-2)"], reconfigured: ["refresh", "var(--success)"], "reconfigure failed": ["refresh", "var(--error)"], "battery replaced": ["battery-sync", "var(--success)"],
+      linked: ["link-variant", "var(--state-icon)"], replaced: ["swap-horizontal", "var(--state-icon)"], "replaced by": ["swap-horizontal", "var(--text-2)"], reconfigured: ["refresh", "var(--success)"], "reconfigure failed": ["refresh", "var(--error)"], "battery replaced": ["battery-sync", "var(--success)"], "maintenance done": ["calendar-clock", "var(--success)"],
       "update available": ["chip", "var(--info)"], "routing scanned": ["sitemap", "var(--state-icon)"],
-      "binding added": ["link-variant", "var(--success)"], "binding restored": ["link-variant", "var(--success)"], "binding removed": ["link-variant", "var(--error)"], unbound: ["link-variant", "var(--text-2)"], "binding change accepted": ["check", "var(--text-2)"] })[k] || ["information-outline", "var(--text-2)"];
+      "binding added": ["link-variant", "var(--success)"], "binding restored": ["link-variant", "var(--success)"], "binding removed": ["link-variant", "var(--error)"], unbound: ["link-variant", "var(--text-2)"], "binding change accepted": ["check", "var(--text-2)"],
+      "reporting changed": ["tune", "var(--success)"], "reporting change failed": ["tune", "var(--error)"], "settings changed": ["cog", "var(--state-icon)"] })[k] || ["information-outline", "var(--text-2)"];
   };
 
   const $ = (s) => document.querySelector(s);
@@ -932,6 +1047,13 @@
       p.extra = parts.filter(Boolean).map((x) => ` · ${x}`).join("");
     },
     signal_dip: (p) => { p.period = tx(`issue.signal_dip.${p.period}`, null, p.period); },
+    upgrade_worse: (p) => {
+      p.date = fmtDate(p.at, false);
+      p.what = listOf((p.changes || []).map((c) => t(c.what === "firmware" ? "upgrade.short_firmware" : "upgrade.short_z2m", { version: c.to })));
+      p.list = listOf((p.metrics || []).map((m) => t("upgrade.issue_metric", { metric: t(`upgrade.metric.${m.key}`), before: upgNum(m.key, m.before), after: upgNum(m.key, m.after) })));
+    },
+    naming_ieee: (p) => { p.extra = p.suggested ? t("issue.naming.suggested", { name: p.suggested }) : ""; },
+    naming_pattern: (p) => { p.extra = p.suggested ? t("issue.naming.suggested", { name: p.suggested }) : ""; },
   };
   // Offline devices behind an offline router are shown inside the router's issue, not on their own.
   const nestedIssue = (i, keys) => Boolean(i.behind) && keys.has(`offline:${i.behind}`);
@@ -958,6 +1080,29 @@
     return p;
   };
   const issueLabel = (i) => tx(`issue.label.${i.kind}`, null, i.label);
+
+  // ------------------------------------------------------------ naming pattern
+  // Same rules as naming.py (render/_tidy/_value): keep the two in step.
+  const tidyName = (v) => String(v ?? "").split(/\s+/).join(" ").trim().replace(/([-_·,:|])(\s*[-_·,:|])+/g, "$1").replace(/^[\s\-_·,:|/]+|[\s\-_·,:|/]+$/g, "").split(/\s+/).join(" ").trim().replace(/\s+([,:;.])/g, "$1");
+  const nameValue = (v) => tidyName(String(v ?? "").replace(/\//g, "-").replace(/[+#]/g, ""));
+  const renderPattern = (pattern, vals, taken) => {
+    if (!pattern) return null;
+    const base = pattern.replace(/\{([a-z]+)\}/g, (m, k) => (k === "n" ? "\0" : vals[k] || ""));
+    if (!tidyName(base.replace(/\0/g, ""))) return null;
+    const hasN = base.includes("\0");
+    for (let n = 1; n < 1000; n++) {
+      const name = (hasN ? tidyName(base.replace(/\0/g, String(n))) : n === 1 ? tidyName(base) : `${tidyName(base)} ${n}`).slice(0, 120).trimEnd();
+      if (!taken.has(name.toLowerCase())) return name;
+    }
+    return null;
+  };
+  // Names in use on active devices, lower case, leaving out the given device.
+  const takenNames = (except) => new Set((state.data?.devices || []).filter((d) => d.status === "active" && d.type !== "Coordinator" && d.friendly_name && d.ieee !== except).map((d) => d.friendly_name.toLowerCase()));
+  const NAME_TOKENS_HTML = Object.fromEntries(["area", "type", "model", "n"].map((k) => [k, `<span class="mono">{${k}}</span>`]));
+  // Naming issues with a suggested name: what Rename to pattern offers.
+  const namingRenames = () => (state.data?.issues || []).filter((i) => i.kind === "naming" && i.params?.suggested && state.byIeee.get(i.ieee)?.status === "active");
+  const namingOk = () => { const n = document.querySelectorAll('#cText input[name="nm"]:checked').length; $("#cOk").textContent = t("naming.rename_n", { n }); $("#cOk").disabled = !n; };
+  const namingExample = (pattern) => (pattern ? renderPattern(pattern, { area: t("settings.naming_sample_area"), type: "Motion", model: "RTCGQ11LM" }, new Set()) || t("settings.naming_example_none") : t("settings.naming_off"));
   const issueTitle = (i) => (i.msg ? tx(`issue.${i.msg}.title`, issueVars(i), i.title) : i.title);
   const issueDetail = (i) => (i.msg ? tx(`issue.${i.msg}.detail`, issueVars(i), i.detail) : i.detail);
   const isNetIssue = (i) => /^(network|group):/.test(String(i.ieee));
@@ -1003,7 +1148,10 @@
     sort: store.get("z2mt.sort") || "status", dir: Number(store.get("z2mt.dir")) || 0,
     open: null, moreTab: "info", settings: null, version: null, editing: false,
     layout: store.get("z2mt.layout") === "dialog" ? "dialog" : "pane",
-    group: store.get("z2mt.group") === "1", areas: null, pairNet: null, openGroups: new Set(), openCoords: new Set(),
+    group: store.get("z2mt.group") === "1", areas: null, pairNet: null, pairForm: {}, openGroups: new Set(), openCoords: new Set(), usedOpen: new Set(),
+    // Maintenance task being edited on the device panel: { ieee, id } or null.
+    mtEdit: null,
+    logMode: store.get("z2mt.logMode") === "incidents" ? "incidents" : "all", openIncidents: new Set(),
   };
 
   const TOUCH = () => window.matchMedia?.("(pointer: coarse)").matches;
@@ -1166,11 +1314,30 @@
       return out.join("");
     }
     if (i.kind === "single_point") out.push(`<button class="btn" data-view="map">${th("common.map")}</button>`);
+    if (i.kind === "reporting_config" && !(state.open === i.ieee && state.moreTab === "health")) out.push(`<button class="btn" data-act="open-health" data-ieee="${esc(i.ieee)}">${th("more.tab.health")}</button>`);
     if (i.kind === "router_hopping" && !(state.open === i.ieee && state.moreTab === "history")) out.push(`<button class="btn" data-act="open-history" data-ieee="${esc(i.ieee)}">${th("more.tab.history")}</button>`);
     if (i.kind === "replacement" && d?.suggestions?.[0]) out.push(`<button class="btn" data-act="link" data-old="${esc(d.suggestions[0].ieee)}" data-new="${esc(i.ieee)}">${th("common.link")}</button>`);
     out.push(`<button class="btn" data-act="mute" data-ieee="${esc(i.ieee)}" data-kind="${esc(i.kind)}">${th("common.ignore")}</button>`);
     return out.join("");
   };
+
+  // What uses the device in HA (snapshot used_by): "Used by 2 automations and 1 script", opening to links.
+  // Automations and scenes link by their "id" (none for YAML ones without one), scripts by object id.
+  const USED_KINDS = [["automations", "automation"], ["scripts", "script"], ["scenes", "scene"]];
+  const usedBy = (d) => {
+    const u = d?.used_by;
+    const counts = u ? USED_KINDS.filter(([k]) => u[k]?.length).map(([k, s]) => t(`used_by.${s}`, { n: u[k].length })) : [];
+    if (!counts.length) return "";
+    const item = (s, x) => `<li>${x.id ? `<a href="/config/${s}/edit/${esc(encodeURIComponent(x.id))}" target="_top">${esc(x.name)}</a>` : `<span class="name" title="${esc(t("used_by.no_editor"))}">${esc(x.name)}</span>`}<span class="kind">${th(`used_by.type_${s}`)}</span></li>`;
+    return `<details class="used-by" data-used="${esc(d.ieee)}"${state.usedOpen.has(d.ieee) ? " open" : ""}><summary>${ic("robot-outline", "s18")}<span>${th("used_by.summary", { what: esc(listOf(counts)) })}</span>${ic("chevron-down", "s18 chev")}</summary><ul>${USED_KINDS.flatMap(([k, s]) => (u[k] || []).map((x) => item(s, x))).join("")}</ul></details>`;
+  };
+
+  // Keep a "Used by" list open across re-renders. toggle doesn't bubble, so listen while capturing.
+  document.addEventListener("toggle", (e) => {
+    const el = e.target;
+    if (!(el instanceof HTMLDetailsElement) || !el.dataset.used) return;
+    if (el.open) state.usedOpen.add(el.dataset.used); else state.usedOpen.delete(el.dataset.used);
+  }, true);
 
   const scanLine = (topics, nm) => topics.map((bt) => { const x = nm[bt] || {}; return `${netLabel(bt)}: ${x.running_since ? t("common.scanning_lower") : x.scanned_at ? relTime(x.scanned_at) : t("time.never_inline")}`; }).join(" · ");
   const renderHealth = () => {
@@ -1181,7 +1348,7 @@
     const scans = scanLine(state.data.instances, nm);
     // The device's other issues, each with its own actions, so ignoring one leaves the rest.
     // `said` holds issue kinds whose detail the cause line already gives, so it isn't repeated.
-    const alsoList = (rest, said = new Set()) => (rest.length ? `<div class="also-list">${rest.map((x) => `<div class="also"><span class="also-t">${th("health.also", { what: esc(said.has(x.kind) ? issueTitle(x) : `${issueTitle(x)} · ${issueDetail(x)}`) })}</span><span class="acts">${issueActions(x)}</span></div>`).join("")}</div>` : "");
+    const alsoList = (rest, said = new Set(), used = "") => (rest.length || used ? `<div class="also-list">${used}${rest.map((x) => `<div class="also"><span class="also-t">${th("health.also", { what: esc(said.has(x.kind) ? issueTitle(x) : `${issueTitle(x)} · ${issueDetail(x)}`) })}</span><span class="acts">${issueActions(x)}</span></div>`).join("")}</div>` : "");
     // Only causes the data shows: a battery last seen nearly flat, or the router the device last talked through.
     const nearlyFlat = (d) => isBattery(d) && typeof d.battery === "number" && d.battery <= 10;
     const offlineCause = (d) => {
@@ -1210,22 +1377,24 @@
       if (kids.length) return routerItem(i, d, kids, rest);
       const off = i.kind === "offline" && d;
       const cause = off ? offlineCause(d) : null;
-      return `<div class="row${rest.length ? " has-members" : ""}${off ? " triage" : ""}"><span class="state-ic" style="color:${tone}">${ic(KIND_ICON[i.kind] || "alert")}</span>
+      const used = usedBy(d);
+      return `<div class="row${rest.length || used ? " has-members" : ""}${off ? " triage" : ""}"><span class="state-ic" style="color:${tone}">${ic(KIND_ICON[i.kind] || "alert")}</span>
         <button type="button" class="text row-open open-btn" data-open="${esc(i.ieee)}"><span class="t1">${esc(issueTitle(i))}: ${esc(issueName(i))}${i.critical ? ` ${critTag()}` : ""}</span><span class="t2">${esc(issueDetail(i))}${d?.area ? ` · ${esc(d.area)}` : ""}</span>${cause ? `<span class="t2 cause">${esc(cause)}</span>` : ""}</button>
-        <div class="acts">${off ? offlineActs(d) : ""}${issueActions(i)}</div></div>${alsoList(rest, off && nearlyFlat(d) ? new Set(["battery_low"]) : undefined)}`;
+        <div class="acts">${off ? offlineActs(d) : ""}${issueActions(i)}</div></div>${alsoList(rest, off && nearlyFlat(d) ? new Set(["battery_low"]) : undefined, used)}`;
     };
     // A router that is offline with devices behind it: one row, and the devices listed under it on demand.
     const routerItem = (i, d, kids, rest = []) => {
       const open = state.openGroups.has(i.ieee);
       const line = [typeLabel(d?.type || "Router"), t("health.offline_for", { duration: issueVars(i).duration }), netLabel(i.instance), d?.area].filter(Boolean).join(" · ");
+      const used = usedBy(d);
       const kid = (x) => {
         const k = state.byIeee.get(x.ieee);
         return `<button type="button" class="row click open-btn" data-open="${esc(x.ieee)}"><span class="state-ic off">${ic(k ? kindIcon(k) : "zigbee", "s20")}</span>
           <span class="text"><span class="t1">${esc(x.name)}</span><span class="t2">${esc(cap(t("health.offline_for", { duration: issueVars(x).duration })))}${k?.area ? ` · ${esc(k.area)}` : ""}</span></span></button>`;
       };
-      return `<div class="row${rest.length ? " has-members" : ""}"><span class="state-ic bad">${ic("router-wireless")}</span>
+      return `<div class="row${rest.length || used ? " has-members" : ""}"><span class="state-ic bad">${ic("router-wireless")}</span>
         <button type="button" class="text row-open open-btn" data-open="${esc(i.ieee)}"><span class="t1">${th("health.router_down", { n: kids.length, name: `<b style="font-weight:500">${esc(i.name)}</b>` })}</span><span class="t2">${esc(line)}</span></button>
-        <div class="acts"><button class="btn" data-act="toggle-group" data-ieee="${esc(i.ieee)}" aria-expanded="${open}">${open ? th("health.hide_devices") : th("health.show_devices", { n: kids.length })}</button>${issueActions(i)}</div></div>${alsoList(rest)}
+        <div class="acts"><button class="btn" data-act="toggle-group" data-ieee="${esc(i.ieee)}" aria-expanded="${open}">${open ? th("health.hide_devices") : th("health.show_devices", { n: kids.length })}</button>${issueActions(i)}</div></div>${alsoList(rest, undefined, used)}
         ${open ? `<div class="group-list">${kids.map(kid).join("")}</div>` : ""}`;
     };
     const keys = new Set(issues.map((i) => i.key));
@@ -1233,6 +1402,7 @@
     const own = healthRows(issues);
     const warn = own.filter((g) => g[0].severity === "warning"), info = own.filter((g) => g[0].severity !== "warning");
     const warnIssues = warn.reduce((n, g) => n + g.length, 0);
+    const renames = namingRenames().length;
     // Problems come first: on a phone the status cards below would push them several screens down.
     // Severe warnings (offline, battery nearly flat) lead the list.
     warn.sort((a, b) => Number(severe(b[0])) - Number(severe(a[0])));
@@ -1247,13 +1417,16 @@
           <div><small>${th("health.thresholds")}</small><b>${th("health.thresholds_line", { offline: esc(o.offline_alert_minutes), frozen: esc(o.frozen_alert_hours), battery: esc(o.battery_alert_percent) })}</b></div>
           <div><small>${th("health.routing_scan")}</small><b>${esc(scans)}</b></div>
         </div>
-        <div class="card-actions"><button class="btn" data-view="settings">${th("health.alert_settings")}</button><button class="btn ${running ? "busy" : ""}" data-act="scan" ${running ? "disabled" : ""}>${ic(running ? "refresh" : "sitemap", "s18")}${running ? th("common.scanning") : th("menu.run_scan")}</button></div>
+        <div class="card-actions"><button class="btn" data-view="settings">${th("health.alert_settings")}</button>${renames ? `<button class="btn" data-act="naming-bulk">${ic("pencil", "s18")}${th("naming.bulk", { n: renames })}</button>` : ""}<button class="btn ${running ? "busy" : ""}" data-act="scan" ${running ? "disabled" : ""}>${ic(running ? "refresh" : "sitemap", "s18")}${running ? th("common.scanning") : th("menu.run_scan")}</button></div>
       </div>
       ${coordinatorsCard()}
+      ${maintenanceCard()}
       ${shoppingCard()}
+      ${brandCard()}
       ${leftoverCard()}
       ${radioCard()}
-      ${groupsCard()}`;
+      ${groupsCard()}
+      ${modelsCard()}`;
   };
 
   // serial.adapter -> a name people recognise. Unknown drivers show as sent.
@@ -1287,7 +1460,8 @@
       // The five facts worth a glance stay visible; the rest opens on demand. A network that is down, or whose
       // Zigbee2MQTT memory is growing, starts open. Toggling flips it from that default.
       const memIssue = (state.data.issues || []).some((i) => i.kind === "z2m_memory" && i.instance === bt);
-      const open = state.openCoords.has(bt) !== (!online || memIssue);
+      const upgIssue = (state.data.issues || []).some((i) => i.kind === "upgrade_worse" && i.instance === bt);
+      const open = state.openCoords.has(bt) !== (!online || memIssue || upgIssue);
       const more = [...[[th("coord.connection"), coordConnection(info.connection)], [th("coord.channel_pan"), info.channel ? `${info.channel} / ${info.pan_id ?? "?"}` : null],
         [th("coord.running_for"), h.uptime_sec ? span(h.uptime_sec) : null], [th("coord.memory"), h.memory_mb ? t("coord.memory_mb", { n: Math.round(h.memory_mb) }) : null],
         [th("coord.mqtt"), h.mqtt_published != null ? t("coord.mqtt_value", { sent: compactNum(h.mqtt_published), received: compactNum(h.mqtt_received ?? 0) }) : null],
@@ -1301,10 +1475,28 @@
           [th("coord.last_7_days"), [t("coord.outages", { n: outages.length }) + (outages.length ? ` ${t("coord.down_for", { n: downMin })}` : ""), t("coord.restarts", { n: restarts })].join(" · ")],
           [th("coord.leaves_week"), String(leaves)], [th("coord.backup"), backup]])}
         ${more.length || b.health ? `<div class="coord-more"><button class="btn" data-act="toggle-coord" data-bt="${esc(bt)}" aria-expanded="${open}">${ic(open ? "chevron-up" : "chevron-down", "s18")}${th(open ? "coord.fewer_details" : "coord.more_details")}</button></div>` : ""}
-        ${open ? `<div class="coord-detail">${kv(more)}${coordHealth(bt, b)}</div>` : ""}
+        ${open ? `<div class="coord-detail">${kv(more)}${coordHealth(bt, b)}${coordChanges(b)}${coordUpgrade(bt)}</div>` : ""}
       </div>`;
     }).join("");
     return `<div class="card"><div class="card-header">${ic("router-wireless")}<div><h2 class="ch">${th("coord.title")}</h2><small>${th("coord.subtitle")}</small></div></div>${nets}</div>`;
+  };
+
+  // Zigbee2MQTT's own settings, newest change first. Values arrive as JSON text; strings lose their quotes.
+  const CFG_SHOWN = 10;
+  const cfgVal = (v) => { if (v == null) return ""; try { const p = JSON.parse(v); return typeof p === "string" ? p : v; } catch (e) { return v; } };
+  const coordChanges = (b) => {
+    const log = [...(b.config_changes || [])].reverse();
+    if (!log.length) return "";
+    const rows = log.slice(0, CFG_SHOWN).map((c) => {
+      const where = c.ieee ? `${devLink(c.ieee)} · <span class="mono">${esc(c.setting)}</span>` : `<span class="mono">${esc(c.path)}</span>`;
+      const what = c.secret ? th("coord.change_hidden")
+        : c.change === "added" ? th("coord.change_added", { value: `<b class="mono">${esc(cfgVal(c.new))}</b>` })
+        : c.change === "removed" ? th("coord.change_removed", { value: `<span class="mono">${esc(cfgVal(c.old))}</span>` })
+        : `<span class="mono cfg-old">${esc(cfgVal(c.old))}</span> → <b class="mono">${esc(cfgVal(c.new))}</b>`;
+      return `<li><div class="cfg-where">${where}</div><div class="cfg-what">${what}</div><div class="cfg-when">${esc(fmtDate(c.time))}</div></li>`;
+    }).join("");
+    const older = log.length > CFG_SHOWN ? `<div class="cfg-more">${th("coord.settings_older", { n: log.length - CFG_SHOWN })}</div>` : "";
+    return `<div class="coord-extra"><div class="sub-h">${th("coord.settings_changes")}</div><ul class="cfg-log">${rows}</ul>${older}</div>`;
   };
 
   const compactNum = (n) => intl((l) => new Intl.NumberFormat(l, { notation: "compact", maximumFractionDigits: 1 }).format(n));
@@ -1326,6 +1518,32 @@
       <div class="mem-bars" role="group" aria-label="${esc(t("coord.memory_chart"))}" ${hoverAttrs(`mem-${bt}`, { bars: true, p: hov })}>${bars}</div>
       <div class="mem-axis"><span>${esc(label(slots[0].dt))}</span><span>${th("coord.today")}</span></div>
       ${issue ? `<div class="alert" style="--a:var(--warning)">${ic("chip")}<div class="body">${esc(issueDetail(issue))}</div></div>` : ""}</div>`;
+  };
+
+  // Effect of an upgrade (state.data.upgrade_impact): the week before the latest Zigbee2MQTT or firmware change against the week after.
+  const UPG_METRICS = { offline_per_day: 1, lqi: 0, msg_per_hour: 0, leaves_per_day: 1, parent_changes_per_scan: 1 };
+  const upgNum = (key, v) => intl((l) => new Intl.NumberFormat(l, { maximumFractionDigits: UPG_METRICS[key] ?? 1 }).format(v));
+  const upgChange = (c) => t(c.what === "firmware" ? "upgrade.change_firmware" : "upgrade.change_z2m", { from: c.from, to: c.to });
+  const upgChanges = (u) => listOf((u.changes || []).map(upgChange));
+  const upgVerdict = (u) => !u.ready ? t(u.no_before ? "upgrade.verdict_no_before" : "upgrade.verdict_waiting") : u.verdict ? t(`upgrade.verdict_${u.verdict}`) : t("upgrade.verdict_none");
+  const coordUpgrade = (bt) => {
+    const imp = (state.data.upgrade_impact || {})[bt];
+    if (!imp || !imp.latest) return "";
+    const u = imp.latest;
+    const status = (st) => (st === "worse" ? `<span class="badge warn">${th("upgrade.worse")}</span>` : `<span class="upg-st">${th(`upgrade.${st === "better" || st === "changed" ? st : "same"}`)}</span>`);
+    const note = !u.ready
+      ? th(u.no_before ? "upgrade.no_before" : "upgrade.waiting")
+      : [u.complete ? th("upgrade.after_full") : th("upgrade.after_so_far", { n: Math.floor(u.elapsed_days) }), u.before_days < 6.5 ? th("upgrade.short_before", { n: Math.round(u.before_days) }) : ""].filter(Boolean).join(" ");
+    const rows = u.ready && u.metrics.length ? `<table class="upg-t"><thead><tr><th scope="col">${th("upgrade.measure")}</th><th scope="col">${th("upgrade.before")}</th><th scope="col">${th("upgrade.after")}</th><th scope="col"><span class="sr">${th("upgrade.change")}</span></th></tr></thead><tbody>${u.metrics
+      .map((m) => `<tr><th scope="row">${th(`upgrade.metric.${m.key}`)}</th><td>${esc(upgNum(m.key, m.before))}</td><td>${esc(upgNum(m.key, m.after))}</td><td>${status(m.status)}</td></tr>`).join("")}</tbody></table>`
+      : u.ready ? `<div class="upg-note">${th("upgrade.verdict_no_data")}</div>` : "";
+    const issue = (state.data.issues || []).find((i) => i.kind === "upgrade_worse" && i.instance === bt);
+    const earlier = (imp.earlier || []).map((e) => `<li>${esc(upgChanges(e))} · ${esc(fmtDate(e.at, false))}<span class="upg-st">· ${esc(upgVerdict(e))}</span></li>`).join("");
+    return `<div class="coord-extra"><div class="sub-h">${th("upgrade.title")}</div>
+      <div class="upg-head">${esc(upgChanges(u))} · ${esc(fmtDate(u.at, false))}</div>
+      <div class="upg-note">${note}</div>${rows}
+      ${issue ? `<div class="alert" style="--a:var(--warning)">${ic("update")}<div class="body">${th("upgrade.alert")}</div></div>` : ""}
+      ${earlier ? `<div class="sub-h">${th("upgrade.earlier")}</div><ul class="upg-list">${earlier}</ul>` : ""}</div>`;
   };
 
   const radioCard = () => {
@@ -1397,6 +1615,106 @@
       ${groups.map(row).join("")}</div>`;
   };
 
+  // Reliability by model (state.data.model_reliability): the user's own devices grouped by vendor + model, worst first.
+  // Tapping a model searches the device list for it. One-device models are listed but never flagged.
+  const MODELS_LIMIT = 8;
+  const MODEL_SORTS = [["worst", "models.sort_worst"], ["devices", "models.sort_devices"], ["battery", "models.sort_battery"]];
+  const num1 = (n) => intl((l) => new Intl.NumberFormat(l, { maximumFractionDigits: 1 }).format(n));
+  const modelFlagged = (r) => r.devices > 1 && ((r.uptime_30d !== null && r.uptime_30d < 99) || (r.dropouts_per_month ?? 0) >= 2 || (r.interview_failures + r.repairs) / r.devices >= 1);
+  const modelsCard = () => {
+    const all = state.data.model_reliability || [];
+    if (!all.length) return "";
+    const by = state.modelsSort || "worst";
+    const rows = by === "devices" ? [...all].sort((a, b) => b.devices - a.devices)
+      : by === "battery" ? [...all].sort((a, b) => (a.battery_life_days ?? Infinity) - (b.battery_life_days ?? Infinity)) : all;
+    const shown = state.modelsAll ? rows : rows.slice(0, MODELS_LIMIT);
+    const facts = (r) => [
+      t("models.devices", { n: r.devices }),
+      r.uptime_30d !== null ? t("models.uptime", { n: num1(Math.floor(r.uptime_30d * 10) / 10) }) : null,
+      r.dropouts_per_month === null ? null : r.dropouts_per_month ? t("models.dropouts", { n: num1(r.dropouts_per_month) }) : t("models.no_dropouts"),
+      r.battery_life_days !== null ? `${t("models.battery", { n: r.battery_life_days })} (${t("models.changes", { n: r.battery_samples })})` : null,
+      r.interview_failures ? t("models.interview_failures", { n: r.interview_failures }) : null,
+      r.repairs ? t("models.repairs", { n: r.repairs }) : null,
+    ].filter(Boolean).join(" · ");
+    const row = (r) => {
+      const name = [r.vendor, r.model].filter(Boolean).join(" ");
+      const bad = modelFlagged(r);
+      const d = state.byIeee.get(r.ieees[0]);
+      return `<button type="button" class="row click open-btn" data-act="model-filter" data-q="${esc(name)}"><span class="state-ic" style="color:${bad ? "var(--warning)" : "var(--state-icon)"}">${ic(d ? kindIcon(d) : "zigbee")}</span>
+        <span class="text"><span class="t1">${esc(name)}</span><span class="t2">${esc(facts(r))}</span></span>${bad ? `<span class="badge warn">${th("models.check")}</span>` : ""}</button>`;
+    };
+    const chips = MODEL_SORTS.map(([k, l]) => `<button class="chip" data-act="models-sort" data-v="${k}" aria-pressed="${by === k}">${ic("check", "s18")}${th(l)}</button>`).join("");
+    return `<div class="card"><div class="card-header">${ic("chip")}<div><h2 class="ch">${th("models.title")}</h2><small>${th("models.subtitle", { n: all.length })}</small></div></div>
+      ${all.length > 1 ? `<div class="chips models-sort" role="group" aria-label="${esc(t("models.sort"))}">${chips}</div>` : ""}
+      ${shown.map(row).join("")}
+      <div class="models-note">${th("models.note")}</div>
+      ${shown.length < rows.length ? `<div class="card-actions"><button class="btn" data-act="models-all">${th("models.show_all", { n: rows.length })}</button></div>` : ""}</div>`;
+  };
+  // ------------------------------------------------------------ maintenance tasks
+  // Recurring jobs per device (test a smoke alarm monthly). The app works out each task's due date and
+  // its days until then (state.data.maintenance, negative when overdue); this only draws them.
+  const MT_SOON = 14;
+  const MT_UNITS = { days: 3650, weeks: 521, months: 120, years: 10 };
+  const mtEvery = (x) => t(`maint.every.${x.unit}`, { n: x.every });
+  const mtDate = (iso) => fmtDate(`${iso}T12:00:00`, false);
+  const mtDue = (x) => (x.days < 0 ? t("maint.overdue", { n: -x.days }) : x.days === 0 ? t("maint.due_today") : x.days <= MT_SOON ? t("maint.due_in", { n: x.days }) : t("maint.due_on", { date: mtDate(x.due) }));
+  const mtTone = (x) => (x.days < 0 ? "var(--warning)" : x.days <= MT_SOON ? "var(--info)" : "var(--text-2)");
+  const mtDoneBtn = (x) => `<button class="btn" data-act="mt-done" data-ieee="${esc(x.ieee)}" data-id="${esc(x.id)}">${ic("check", "s18")}${th("maint.done")}</button>`;
+  // Quick picks by what the device is; free text is always allowed.
+  const MT_SUGGEST = [
+    [/smoke|fire alarm|carbon monoxide/, [["maint.s.smoke_test", 1, "months"], ["maint.s.smoke_vacuum", 6, "months"]]],
+    [/water_leak|leak|flood/, [["maint.s.leak_test", 6, "months"], ["maint.s.leak_clean", 6, "months"]]],
+    [/contact|door|window/, [["maint.s.door_magnet", 1, "years"]]],
+    [/occupancy|motion|presence/, [["maint.s.motion_lens", 6, "months"], ["maint.s.motion_test", 1, "years"]]],
+    [/radiator|thermostat|trv/, [["maint.s.thermostat", 1, "years"]]],
+  ];
+  const mtSuggestions = (d) => {
+    const text = `${d.description || ""} ${d.model || ""} ${(d.features || []).join(" ")}`.toLowerCase();
+    return MT_SUGGEST.filter(([re]) => re.test(text)).flatMap(([, list]) => list);
+  };
+  const maintenanceCard = () => {
+    const all = state.data.maintenance || [];
+    if (!all.length) return "";
+    const due = all.filter((x) => x.days <= MT_SOON);
+    const overdue = due.filter((x) => x.days < 0).length;
+    const sub = due.length ? [overdue ? t("maint.n_overdue", { n: overdue }) : null, due.length - overdue ? t("maint.n_soon", { n: due.length - overdue }) : null].filter(Boolean).join(" · ")
+      : t("maint.card_clear", { title: all[0].title, date: mtDate(all[0].due) });
+    const row = (x) => `<div class="row"><span class="state-ic" style="color:${mtTone(x)}">${ic("calendar-clock")}</span>
+      <div class="text"><div class="t1">${esc(x.title)}</div><div class="t2"><a href="#${esc(x.ieee)}" data-open="${esc(x.ieee)}">${esc(x.name)}</a> · ${esc(mtDue(x))} · ${esc(mtEvery(x))}</div></div>
+      <span class="acts">${mtDoneBtn(x)}</span></div>`;
+    return `<div class="card"><div class="card-header">${ic("calendar-clock")}<div><h2 class="ch">${th("maint.title")}</h2><small>${esc(sub)}</small></div></div>${due.map(row).join("")}</div>`;
+  };
+  // The device panel's Maintenance section (Notes tab): its tasks, then a form to add one or edit the chosen one.
+  const maintSection = (d) => {
+    if (d.type === "Coordinator") return "";
+    const tasks = d.maintenance || [];
+    const active = d.status !== "removed";
+    if (!tasks.length && !active) return "";
+    const info = new Map((state.data.maintenance || []).filter((x) => x.ieee === d.ieee).map((x) => [x.id, x]));
+    const edit = state.mtEdit?.ieee === d.ieee ? tasks.find((x) => x.id === state.mtEdit.id) : null;
+    const rows = tasks.map((task) => {
+      const x = info.get(task.id);
+      const facts = [mtEvery(task), x ? mtDue(x) : null, task.last_done ? t("maint.last_done", { date: mtDate(task.last_done) }) : null].filter(Boolean).join(" · ");
+      return `<div class="mt-item"><span class="mt-text"><span class="mt-title">${esc(task.title)}${x && x.days < 0 ? `<span class="badge warn">${th("maint.overdue_tag")}</span>` : ""}</span><span class="muted">${esc(facts)}</span>${task.note ? `<span class="muted">${esc(task.note)}</span>` : ""}</span>
+        ${active ? `<span class="lost-act">${mtDoneBtn({ ieee: d.ieee, id: task.id })}<button class="icon-btn" data-act="mt-edit" data-id="${esc(task.id)}" aria-label="${esc(t("maint.edit"))}" title="${esc(t("maint.edit"))}">${ic("pencil", "s20")}</button><button class="icon-btn" data-act="mt-remove" data-id="${esc(task.id)}" aria-label="${esc(t("maint.remove"))}" title="${esc(t("maint.remove"))}">${ic("delete", "s20")}</button></span>` : ""}</div>`;
+    }).join("");
+    const f = edit || { title: "", every: 1, unit: "months", last_done: "", note: "" };
+    const picks = edit ? [] : mtSuggestions(d);
+    const form = !active || (tasks.length >= 20 && !edit) ? "" : `
+      ${edit ? `<div class="card-content muted">${th("maint.editing", { title: esc(edit.title) })}</div>` : ""}
+      ${picks.length ? `<div class="chips mt-picks" role="group" aria-label="${esc(t("maint.suggestions"))}">${picks.map(([k, n, u], i) => `<button class="chip" data-act="mt-pick" data-i="${i}">${th(k)} · ${esc(t(`maint.every.${u}`, { n }))}</button>`).join("")}</div>` : ""}
+      <form class="form" id="mtForm">
+        <label class="wide">${th("maint.task")}<input class="field" name="title" maxlength="80" value="${esc(f.title)}" placeholder="${esc(t("maint.task_placeholder"))}" autocomplete="off"></label>
+        <label>${th("maint.repeat")}<input class="field" name="every" type="number" min="1" max="3650" step="1" inputmode="numeric" value="${esc(f.every)}"></label>
+        <label>${th("maint.unit")}<select class="field" name="unit">${Object.keys(MT_UNITS).map((u) => `<option value="${u}" ${u === f.unit ? "selected" : ""}>${th(`maint.unit.${u}`)}</option>`).join("")}</select></label>
+        <label class="wide">${th("maint.last_done_label")}<input class="field" name="last_done" type="date" max="${todayIso()}" value="${esc(f.last_done || "")}"></label>
+        <label class="wide">${th("maint.note")}<input class="field" name="note" maxlength="500" value="${esc(f.note || "")}" autocomplete="off"></label>
+      </form>
+      <div class="row-actions"><button class="btn" data-act="mt-save">${ic(edit ? "check" : "plus", "s18")}${th(edit ? "maint.save" : "maint.add")}</button>${edit ? `<button class="btn" data-act="mt-cancel">${th("common.cancel")}</button>` : ""}</div>`;
+    return `<div class="sub-h">${th("maint.title")}</div>
+      ${rows ? `<div class="rep-list">${rows}</div>` : `<div class="card-content muted">${th("maint.none")}</div>`}${form}`;
+  };
+
   // Spares in the drawer per battery type (state.data.battery_stock), matched without regard to case.
   const stockKey = (type) => Object.keys(state.data.battery_stock || {}).find((k) => k.toLowerCase() === String(type).toLowerCase());
   const stockOf = (type) => { const k = stockKey(type); return k === undefined ? 0 : state.data.battery_stock[k]; };
@@ -1424,6 +1742,39 @@
       </tbody></table></div>` : ""}
       <div class="stock-add"><input class="field" id="stockType" list="stockTypes" placeholder="${esc(t("shop.add_placeholder"))}" aria-label="${esc(t("battery.type"))}" maxlength="40" autocomplete="off"><input class="field num" id="stockN" type="number" min="1" max="999" value="1" aria-label="${esc(t("shop.add_count"))}"><button class="btn" data-act="stock-add">${ic("plus", "s18")}${th("shop.add")}</button>
         <datalist id="stockTypes">${types.map((x) => `<option value="${esc(x)}"></option>`).join("")}</datalist></div>
+    </div>`;
+  };
+
+  // Battery brands: the saved list (Settings > Battery brands) and the last one used per battery type (to prefill).
+  const brandList = () => state.data?.battery_brand_list || [];
+  const lastBrandFor = (type) => {
+    const last = state.data.battery_brands?.last_brand || {}, want = String(type || "Unknown type").toLowerCase();
+    const k = Object.keys(last).find((x) => x.toLowerCase() === want);
+    return k === undefined ? "" : last[k];
+  };
+  // keep: a brand already on the record stays selectable even when it has left the list, so saving doesn't clear it.
+  const brandField = (value, keep = false) => {
+    const list = brandList(), match = list.find((x) => x.toLowerCase() === String(value || "").toLowerCase());
+    const opts = [...list];
+    if (!match && value && keep) opts.unshift(value);
+    const sel = match || (keep ? value : "");
+    return `<label>${th("battery.brand")}<select class="field" id="cBrand"><option value="">${th("battery.no_brand")}</option>${opts.map((x) => `<option value="${esc(x)}" ${x === sel ? "selected" : ""}>${esc(x)}</option>`).join("")}</select></label>
+    <button class="link-btn manage-brands" type="button" data-act="manage-brands">${th("battery.manage_brands")}</button>`;
+  };
+  // Average life per brand and battery type, from batteries that ran out (change to next change on one device).
+  const brandCard = () => {
+    const types = state.data.battery_brands?.types || [];
+    if (!types.length) return "";
+    const row = (b, top) => {
+      const facts = [b.intervals ? t("brands.used_up", { n: b.intervals }) : null, b.in_use ? t("brands.in_use", { n: b.in_use }) : null];
+      if (b.average_days !== null && b.average_days !== undefined && b.shortest_days !== b.longest_days) facts.splice(1, 0, t("brands.range", { min: b.shortest_days, max: t("unit.days", { n: b.longest_days }) }));
+      const enough = b.average_days !== null && b.average_days !== undefined;
+      const pct = enough && top ? Math.max(4, Math.round((b.average_days / top) * 100)) : 0;
+      return `<div class="brand-row"><div class="top"><span>${esc(b.brand)}</span><b>${enough ? th("brands.average", { n: b.average_days }) : `<span class="muted">${th("brands.not_enough")}</span>`}</b></div>
+        ${enough ? `<div class="bar" aria-hidden="true"><i style="width:${pct}%"></i></div>` : ""}<div class="t2">${esc(facts.filter(Boolean).join(" · "))}</div></div>`;
+    };
+    return `<div class="card"><div class="card-header">${ic("battery")}<div><h2 class="ch">${th("brands.title")}</h2><small>${th("brands.subtitle")}</small></div></div>
+      ${types.map((g) => { const top = Math.max(0, ...g.brands.map((b) => b.average_days || 0)); return `<div class="brand-type">${esc(g.type === "Unknown type" ? t("shop.unknown_type") : g.type)}</div>${g.brands.map((b) => row(b, top)).join("")}`; }).join("")}
     </div>`;
   };
 
@@ -1580,11 +1931,66 @@
     return out.sort((a, b) => b.sev - a.sev);
   };
 
+  // ------------------------------------------------------------ what if a router goes (latest scan only)
+  // MAP.whatif[bt] = { ieee, busy, res, err }. The app works it out from the last scan (api/whatif).
+  MAP.whatif = {};
+  const wiResult = (bt) => { const w = MAP.whatif[bt]; return w?.res && !MAP.scanSel[bt] && w.res.scanned_at === state.data.networkmap?.[bt]?.scanned_at ? w.res : null; };
+  const wiMarks = (bt) => { const r = wiResult(bt); return r ? { gone: r.ieee, move: new Map(r.moves.map((m) => [m.ieee, m.to])), orphan: new Set(r.orphans.map((o) => o.ieee)) } : null; };
+  const wiSummary = (r, link) => {
+    const name = `<b>${esc(r.name)}</b>`;
+    const orphans = r.orphans.map((o) => link(o.ieee, o.name)).join(", ");
+    if (!r.moves.length && !r.orphans.length) return th("whatif.summary_none", { name });
+    if (!r.moves.length) return th("whatif.summary_orphans_only", { name, n: r.orphans.length, names: orphans }) + ".";
+    const to = r.targets.map((x) => th("whatif.summary_to", { n: x.count, name: esc(x.name) })).join(", ");
+    return th("whatif.summary_moves", { name, n: r.moves.length, to }) + (r.orphans.length ? `, ${th("whatif.summary_orphans", { n: r.orphans.length, names: orphans })}` : "") + ".";
+  };
+  const whatifHtml = (bt) => {
+    const w = MAP.whatif[bt];
+    if (!w) return "";
+    const d = state.byIeee.get(w.ieee), who = nameOf(d) || w.ieee;
+    const clear = `<button class="btn" data-act="whatif-clear" data-net="${esc(bt)}">${ic("close", "s18")}${th("whatif.clear")}</button>`;
+    if (w.busy) return `<div class="wi-head"><span class="state-ic" style="color:var(--info)">${ic("refresh")}</span><div class="text">${th("whatif.working", { name: esc(who) })}</div>${clear}</div>`;
+    if (w.err) return `<div class="wi-head"><span class="state-ic" style="color:var(--error)">${ic("alert-circle")}</span><div class="text">${th("whatif.failed", { error: esc(w.err) })}</div>${clear}</div>`;
+    const r = wiResult(bt);
+    if (!r) return `<div class="wi-head"><span class="state-ic" style="color:var(--info)">${ic("information-outline")}</span><div class="text">${th("whatif.latest_only")}</div>${clear}</div>`;
+    // Same label as the map: a device still named by its address shows as "Unnamed device".
+    const label = (ieee, name) => nameOf(state.byIeee.get(ieee)) || (!name || IEEE_RE.test(name) ? t("devices.unnamed") : name);
+    const link = (ieee, name) => `<a href="#${esc(ieee)}" data-mapsel="${esc(ieee)}" data-net="${esc(bt)}">${esc(label(ieee, name))}</a>`;
+    const why = (x) => `<small>${th(`whatif.reason.${x.reason}`)}</small>`;
+    return `<div class="wi-head"><span class="state-ic" style="color:${r.orphans.length ? "var(--error)" : r.moves.length ? "var(--warning)" : "var(--success)"}">${ic("lan-disconnect")}</span><div class="text">${wiSummary(r, link)}</div>${clear}</div>
+      <div class="map-legend wi-legend"><span><i style="background:var(--disabled)"></i>${th("whatif.legend_gone")}</span><span><i style="background:var(--warning)"></i>${th("whatif.legend_move")}</span><span><i style="background:var(--error)"></i>${th("whatif.legend_orphan")}</span><span><b class="dashed wi"></b>${th("whatif.legend_line")}</span></div>
+      ${r.orphans.length ? `<div class="wi-list"><div class="wi-h">${th("whatif.orphans")}</div>${r.orphans.map((o) => `<div class="wi-row orphan"><i></i><span>${link(o.ieee, o.name)} ${why(o)}</span></div>`).join("")}</div>` : ""}
+      ${r.moves.length ? `<div class="wi-list"><div class="wi-h">${th("whatif.moves")}</div>${r.moves.map((m) => `<div class="wi-row move"><i></i><span>${th("whatif.move_row", { device: link(m.ieee, m.name), to: link(m.to, m.to_name), lqi: esc(m.lqi) })} ${why(m)}</span></div>`).join("")}</div>` : ""}
+      <div class="wi-note">${th("whatif.note", { when: esc(fmtDate(r.scanned_at)) })}</div>`;
+  };
+  const updateWhatIf = (bt, scroll = false) => {
+    const box = document.getElementById(`whatif-${bt}`);
+    if (box) { box.innerHTML = whatifHtml(bt); box.hidden = !MAP.whatif[bt]; if (scroll && MAP.whatif[bt]) box.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+    MAP.sims[bt]?.whatif?.();
+  };
+
+  // ------------------------------------------------------------ where to add a router (scored by the app)
+  const placeReasons = (a) => [["weak", a.weak], ["no_backup", a.no_backup], ["hopping", a.hopping], ["unstable", a.unstable]].filter(([, n]) => n).map(([k, n]) => th(`place.${k}`, { n })).join(", ");
+  const placementHtml = (bt) => {
+    const p = state.data.router_placement?.[bt];
+    if (!p) return "";
+    const link = (x) => `<a href="#${esc(x.ieee)}" data-mapsel="${esc(x.ieee)}" data-net="${esc(bt)}">${esc(x.name)}</a>`;
+    const rows = p.areas.map((a, i) => `<div class="adv"><span class="state-ic" style="color:${i ? "var(--info)" : "var(--warning)"}">${ic("power-plug")}</span><div class="text">${th("place.line", { area: `<b>${esc(a.area)}</b>`, reasons: placeReasons(a), action: a.routers ? th("place.add_more", { n: a.routers }) : th("place.add") })}
+        <div class="t2">${th("place.devices", { names: a.devices.slice(0, 6).map(link).join(", ") + (a.devices.length > 6 ? "…" : "") })}</div></div></div>`).join("");
+    const none = p.areas.length ? "" : `<div class="adv"><span class="state-ic" style="color:var(--success)">${ic("check")}</span><div class="text">${th("place.none")}</div></div>`;
+    const noArea = p.no_area ? `<div class="wi-note">${th("place.no_area", { n: p.no_area })}</div>` : "";
+    return `<div class="sub-h">${th("place.title")}</div><div class="advice">${rows}${none}${noArea}<div class="wi-note">${th("place.note")}</div></div>`;
+  };
+  // Area name -> 1-based rank among the suggested areas, for the floor plan flags.
+  const placeRank = (bt) => new Map((state.data.router_placement?.[bt]?.areas || []).map((a, i) => [a.area, i + 1]));
+
   const renderMap = (force = false) => {
     const nm = state.data.networkmap || {};
     const sig = JSON.stringify(state.data.instances.map((bt) => [bt, nm[bt]?.scanned_at, nm[bt]?.running_since, MAP.scanSel[bt], MAP.cmpSel[bt], (MAP.hist[bt] || []).length, MAP.opts[bt]])) + MAP.allLinks + MAP.layout + !!FP.floors + PHONE();
     if (!force && MAP.rendered === sig && $("#view .map-card")) { refreshMapInfo(); return; }
     MAP.rendered = sig;
+    // A what-if belongs to one scan; a newer scan makes it stale.
+    Object.keys(MAP.whatif).forEach((bt) => { const r = MAP.whatif[bt].res; if (r && r.scanned_at !== nm[bt]?.scanned_at) delete MAP.whatif[bt]; });
     Object.values(MAP.sims).forEach((s) => s.stop());
     MAP.sims = {};
     if (MAP.layout === "floor") loadFloors();
@@ -1629,12 +2035,14 @@
             <span class="spacer"></span>
             ${legend}</div>`;
         return `<div class="card map-card" data-net="${esc(bt)}">${head}${tools}
-          ${MAP.layout === "floor" ? `<div class="map-stage fp-mode"><div class="map-info" id="mapinfo-${esc(bt)}" hidden></div>${FP.floors ? fpHtml(bt) : `<div class="card-content muted">${th("map.loading_floors")}</div>`}</div>` : `<div class="map-stage">${phone ? `<div class="map-ctl">${zoom}<button class="icon-btn" data-mapreset="${esc(bt)}" aria-label="${esc(t("map.reset"))}">${ic("refresh")}</button></div>` : ""}<svg class="map names-${MAP.names}" id="map-${esc(bt)}" role="group" aria-label="${esc(t("map.aria", { name: netLabel(bt) }))}"><g class="vp"><g class="links"></g><g class="nodes"></g></g></svg>
+          ${MAP.layout === "floor" ? `<div class="map-stage fp-mode"><div class="map-info" id="mapinfo-${esc(bt)}" hidden></div>${FP.floors ? fpHtml(bt) : `<div class="card-content muted">${th("map.loading_floors")}</div>`}</div>` : `<div class="map-stage">${phone ? `<div class="map-ctl">${zoom}<button class="icon-btn" data-mapreset="${esc(bt)}" aria-label="${esc(t("map.reset"))}">${ic("refresh")}</button></div>` : ""}<svg class="map names-${MAP.names}" id="map-${esc(bt)}" role="group" aria-label="${esc(t("map.aria", { name: netLabel(bt) }))}"><g class="vp"><g class="links"></g><g class="wil"></g><g class="nodes"></g></g></svg>
             <div class="map-info" id="mapinfo-${esc(bt)}" hidden></div></div>`}
+          <div class="whatif" id="whatif-${esc(bt)}" aria-live="polite" ${MAP.whatif[bt] ? "" : "hidden"}>${whatifHtml(bt)}</div>
           ${diff ? `<div class="map-legend" style="padding:8px 16px 0"><span><b style="background:var(--info);height:4px"></b>${th("map.changed_router")}</span><span><b style="background:var(--success);height:4px"></b>${th("map.stronger")}</span><span><b style="background:var(--error);height:4px"></b>${th("map.weaker")}</span><span><b style="background:var(--disabled)"></b>${th("map.unchanged")}</span></div>` : ""}
           ${changes}
           <div class="sub-h">${th("map.advice")}</div>
           <div class="advice">${advice.map((a) => `<div class="adv"><span class="state-ic" style="color:${a.sev >= 2 ? "var(--warning)" : a.sev === 1 ? "var(--info)" : "var(--success)"}">${ic(a.icon)}</span><div class="text">${a.text}</div>${a.action || ""}</div>`).join("")}</div>
+          ${placementHtml(bt)}
         </div>`;
       }).join("")}`;
     state.data.instances.forEach((bt) => { const svg = document.getElementById(`map-${bt}`); if (svg) MAP.sims[bt] = startSim(bt, svg); });
@@ -1656,7 +2064,7 @@
     box.innerHTML = `<div class="mi-head">${stateIc(d)}<div class="text"><b>${esc(nameOf(d) || (d.type === "Coordinator" ? t("map.coordinator") : d.ieee))}</b><small>${esc([d.area, typeLabel(d.type)].filter(Boolean).join(" · "))}</small></div><button class="icon-btn" data-mapclose="${esc(bt)}" aria-label="${esc(t("common.close"))}">${ic("close", "s20")}</button></div>
       ${kv([[d.type === "EndDevice" ? th("map.connects_through") : null, parent ? `${nameOf(parent) || parent.ieee} (LQI ${r.parent.lqi ?? "?"})` : d.type === "EndDevice" ? t("map.not_found") : null],
         [d.type !== "EndDevice" ? th("map.kids") : null, d.type !== "EndDevice" ? kids : null], [th("more.signal_24h"), lqiOf(d) === null ? null : Math.round(lqiOf(d))], [th("devices.col.status"), statusOf(d) !== "active" ? STATUS[statusOf(d)].label : warnings(d)[0] ? issueLabel(warnings(d)[0]) : STATUS.active.label]].filter(([k]) => k))}
-      ${d.type !== "Coordinator" ? `<div class="row-actions"><button class="btn" data-open="${esc(d.ieee)}">${th("map.open_details")}</button></div>` : ""}`;
+      ${d.type !== "Coordinator" ? `<div class="row-actions">${d.type === "Router" && !MAP.scanSel[bt] && r.scanned_at && r.scanned_at === state.data.networkmap?.[bt]?.scanned_at ? `<button class="btn" data-act="whatif" data-net="${esc(bt)}" data-ieee="${esc(d.ieee)}" aria-pressed="${MAP.whatif[bt]?.ieee === d.ieee}">${ic("lan-disconnect", "s18")}${th("whatif.button")}</button>` : ""}<button class="btn" data-open="${esc(d.ieee)}">${th("map.open_details")}</button></div>` : ""}`;
   };
 
   const startSim = (bt, svg) => {
@@ -1678,7 +2086,7 @@
     const byId = new Map(nodes.map((n) => [n.id, n]));
     if (!saved[devs.find((d) => d.type === "Coordinator")?.ieee]) { const c = nodes.find((n) => n.d.type === "Coordinator"); if (c) { c.x = W / 2; c.y = H / 2; } }
     const L = visibleLinks.map((l) => ({ ...l, s: byId.get(l.a), t: byId.get(l.b) })).filter((l) => l.s && l.t);
-    const vp = svg.querySelector(".vp"), gl = svg.querySelector(".links"), gn = svg.querySelector(".nodes");
+    const vp = svg.querySelector(".vp"), gl = svg.querySelector(".links"), gn = svg.querySelector(".nodes"), gw = svg.querySelector(".wil");
     const diff = mapDiff(bt);
     const diffCol = (l) => { const st = diff.status[[l.a, l.b].sort().join("|")]; return st === "moved" ? "var(--info)" : st === "better" ? "var(--success)" : st === "worse" ? "var(--error)" : "var(--disabled)"; };
     gl.innerHTML = L.map((l, i) => { const changed = diff && diff.status[[l.a, l.b].sort().join("|")]; return `<line data-i="${i}" stroke="${diff ? diffCol(l) : lqiCol(l.lqi)}" stroke-width="${changed ? 3 : l.parent ? 1.6 : 1.1}" ${l.parent ? "" : 'stroke-dasharray="5 4"'} opacity="${diff && !changed ? 0.35 : l.parent ? 0.85 : 0.6}"><title>LQI ${esc(l.lqi ?? "?")}</title></line>`; }).join("");
@@ -1688,11 +2096,30 @@
     let view = MAP.view?.[bt] || { k: 1, x: 0, y: 0 };
     const applyView = () => { vp.setAttribute("transform", `translate(${view.x} ${view.y}) scale(${view.k})`); svg.classList.toggle("zoomed", view.k >= 1.4); (MAP.view ||= {})[bt] = view; };
     applyView();
+    // What-if: the removed router greyed, devices that move amber with a dashed line to their likely new router, orphans red.
+    let wiL = [], wiEls = [];
+    const placeLine = (e, a, b) => { e.setAttribute("x1", a.x.toFixed(1)); e.setAttribute("y1", a.y.toFixed(1)); e.setAttribute("x2", b.x.toFixed(1)); e.setAttribute("y2", b.y.toFixed(1)); };
+    const applyWhatIf = () => {
+      const m = wiMarks(bt);
+      wiL = m ? [...m.move].map(([a, b]) => ({ s: byId.get(a), t: byId.get(b) })).filter((l) => l.s && l.t) : [];
+      gw.innerHTML = wiL.map((l) => `<line class="wi-line"><title>${esc(t("whatif.legend_line"))}</title></line>`).join("");
+      wiEls = [...gw.children];
+      wiL.forEach((l, i) => placeLine(wiEls[i], l.s, l.t));
+      svg.classList.toggle("wi-on", !!m);
+      nodes.forEach((n, i) => {
+        nodeEls[i].classList.toggle("wi-gone", m?.gone === n.id);
+        nodeEls[i].classList.toggle("wi-move", !!m?.move.has(n.id));
+        nodeEls[i].classList.toggle("wi-orphan", !!m?.orphan.has(n.id));
+      });
+      L.forEach((l, i) => lineEls[i].classList.toggle("wi-cut", !!m && (l.a === m.gone || l.b === m.gone)));
+    };
     const draw = () => {
-      L.forEach((l, i) => { const e = lineEls[i]; e.setAttribute("x1", l.s.x.toFixed(1)); e.setAttribute("y1", l.s.y.toFixed(1)); e.setAttribute("x2", l.t.x.toFixed(1)); e.setAttribute("y2", l.t.y.toFixed(1)); });
+      L.forEach((l, i) => placeLine(lineEls[i], l.s, l.t));
       nodes.forEach((n, i) => nodeEls[i].setAttribute("transform", `translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})`));
+      wiL.forEach((l, i) => placeLine(wiEls[i], l.s, l.t));
       highlight();
     };
+    applyWhatIf();
     const highlight = () => {
       const sel = MAP.sel[bt];
       const near = new Set(sel ? L.filter((l) => l.a === sel || l.b === sel).flatMap((l) => [l.a, l.b]) : []);
@@ -1807,6 +2234,7 @@
       reset() { delete MAP.pos[bt]; delete MAP.view[bt]; renderMap(true); },
       select(id) { MAP.sel[bt] = id; highlight(); showMapInfo(bt); },
       filter() { highlight(); },
+      whatif() { applyWhatIf(); showMapInfo(bt); },
     };
   };
 
@@ -1899,13 +2327,16 @@
       const label = [fpName(d.ieee), d.type === "EndDevice" ? t("map.battery_device") : typeLabel(d.type), u ? t("map.fp_via", { name: fpName(u.to), lqi: u.lqi ?? "?" }) : !isCoord ? t("map.fp_not_scanned") : ""].filter(Boolean).join(" · ");
       return `<button class="fp-dev ${isCoord ? "coord" : d.type === "Router" ? "router" : "end"} ${!u && !isCoord ? "noscan" : ""} ${!isCoord && statusOf(d) !== "active" ? "offline" : ""}" data-fpdev="${esc(d.ieee)}" aria-label="${esc(label)}"><i style="--c:${isCoord ? "var(--text)" : u ? lqiCol(u.lqi) : "var(--disabled)"}"></i><span>${esc(fpName(d.ieee))}</span></button>`;
     };
+    const ranks = g.historic ? new Map() : placeRank(bt);
     const areaBox = (area, list) => {
+      const rank = area === noArea ? 0 : ranks.get(area) || 0;
       const linked = list.map((d) => up.get(d.ieee)).filter((u) => u && u.lqi !== null && u.lqi !== undefined);
       const weak = linked.length && linked.every((u) => u.lqi < 50);
       const via = weak && new Set(linked.map((u) => u.to)).size === 1 ? state.byIeee.get(linked[0].to) : null;
       const viaName = via ? (via.type === "Coordinator" ? t("map.fp_the_coordinator") : nameOf(via) || via.ieee) : "";
       list.sort((a, b) => (kindOrder[a.type] ?? 3) - (kindOrder[b.type] ?? 3) || collator.compare(nameOf(a) || "~", nameOf(b) || "~"));
-      return `<div class="fp-area ${weak ? "weak" : ""} ${area === noArea ? "none" : ""}" data-fparea="${esc(area === noArea ? "" : area)}"><div class="fp-area-h">${esc(area)}<span class="n">${list.length}</span></div>
+      return `<div class="fp-area ${weak ? "weak" : ""} ${rank ? "suggest" : ""} ${area === noArea ? "none" : ""}" data-fparea="${esc(area === noArea ? "" : area)}"><div class="fp-area-h">${esc(area)}<span class="n">${list.length}</span></div>
+        ${rank ? `<div class="fp-flag sug">${ic("power-plug", "s18")}${th("place.flag", { rank })}</div>` : ""}
         ${weak ? `<div class="fp-flag">${ic("alert", "s18")}${via ? th("map.fp_weak_via", { n: linked.length, name: esc(viaName) }) : th("map.fp_weak", { n: linked.length })}</div>` : ""}
         <div class="fp-devs">${list.map(devBtn).join("")}</div></div>`;
     };
@@ -1985,6 +2416,10 @@
         lines.filter((l) => l.b === sel).forEach((l) => (out += plain(l, "")));
         route.slice(0, -1).forEach((id) => { const l = lineFrom.get(id); if (l) out += path(l, "var(--primary)", "route", !l.parent, lqiTitle(l)); });
       }
+      const wi = wiMarks(bt);
+      if (wi) wi.move.forEach((to, id) => { if (pos.has(id) && pos.has(to)) out += path({ a: id, b: to }, "var(--warning)", "wi-line", true, t("whatif.legend_line")); });
+      root.classList.toggle("wi-on", !!wi);
+      els.forEach((el, id) => { el.classList.toggle("wi-gone", wi?.gone === id); el.classList.toggle("wi-move", !!wi?.move.has(id)); el.classList.toggle("wi-orphan", !!wi?.orphan.has(id)); });
       svg.innerHTML = out;
       els.forEach((el, id) => {
         el.classList.toggle("dim", !!sel && !onRoute.has(id) && !kids.has(id));
@@ -2028,7 +2463,7 @@
     showMapInfo(bt);
     return {
       stop() { if (ro) ro.disconnect(); else window.removeEventListener("resize", draw); },
-      zoom() {}, reset() {}, relayout: draw, paint,
+      zoom() {}, reset() {}, relayout: draw, paint, whatif() { paint(); showMapInfo(bt); },
       // Live updates between scans: only online/offline can change, so the dots are patched in place.
       refresh() { els.forEach((el, id) => { const d = state.byIeee.get(id); if (d && d.type !== "Coordinator") el.classList.toggle("offline", statusOf(d) !== "active"); }); },
       select(id) { MAP.sel[bt] = id; paint(); showMapInfo(bt); els.get(id)?.scrollIntoView({ block: "nearest" }); },
@@ -2036,13 +2471,44 @@
   };
 
   const LOG_PAGE = 100;
+  // Incidents view: the server groups related problem events per network (incidents.py) and names a likely cause.
+  const logModeChips = () => `<div class="chips log-mode" role="group" aria-label="${esc(t("incident.view"))}">${[["all", "incident.mode_all"], ["incidents", "incident.mode_incidents"]].map(([m, l]) => `<button class="chip" data-act="log-mode" data-mode="${m}" aria-pressed="${state.logMode === m}">${ic("check", "s18")}${th(l)}</button>`).join("")}</div>`;
+  const incidentCause = (inc) => inc.cause === "router_offline" && inc.router ? th("incident.cause.router_offline", { name: esc(inc.router.name || inc.router.ieee) })
+    : th(`incident.cause.${["z2m_down", "network_wide"].includes(inc.cause) ? inc.cause : "unknown"}`);
+  const renderIncidents = () => {
+    const list = Array.isArray(state.data.incidents) ? state.data.incidents : [];
+    if (!list.length) return `<div class="card">${logModeChips()}${emptyState("check", th("incident.empty"), th("incident.empty_text"))}</div>`;
+    const sameDay = (a, b) => fmtDate(a, false) === fmtDate(b, false);
+    return `<div class="card">${logModeChips()}${list.map((inc) => {
+      const open = state.openIncidents.has(inc.id);
+      const when = inc.ongoing ? th("incident.since", { time: esc(fmtTime(inc.start)) })
+        : `${esc(fmtTime(inc.start))}–${esc(inc.end && !sameDay(inc.start, inc.end) ? fmtDate(inc.end) : fmtTime(inc.end || inc.last))}`;
+      const secs = ((inc.ongoing ? Date.now() : Date.parse(inc.end || inc.last)) - Date.parse(inc.start)) / 1000;
+      const counts = inc.affected ? (inc.recovered >= inc.affected ? th("incident.all_back", { n: inc.affected }) : th("incident.some_back", { n: inc.affected, back: inc.recovered })) : th("incident.network_only");
+      const color = inc.ongoing ? "var(--error)" : "var(--warning)";
+      const evs = Array.isArray(inc.events) ? inc.events : [];
+      const members = evs.map((e) => {
+        const d = state.byIeee.get(e.ieee);
+        const [icon, c] = EVENT_ICON(String(e.kind || ""));
+        const who = e.ieee === "network" ? esc(t("incident.network")) : d ? devLink(e.ieee) : esc(e.name && !IEEE_RE.test(e.name) ? e.name : e.ieee);
+        return `<div class="inc-ev"><span class="inc-ic" style="color:${c}">${ic(icon, "s18")}</span><span class="text">${who} ${esc(eventKind(e.kind))}</span><time datetime="${esc(e.time)}">${esc(fmtTime(e.time))}</time></div>`;
+      }).join("");
+      const more = (inc.events_total || 0) > evs.length ? `<div class="inc-ev muted">${th("incident.more_events", { n: inc.events_total - evs.length })}</div>` : "";
+      return `<div class="inc${inc.ongoing ? " ongoing" : ""}">
+        <button class="log inc-head" type="button" data-act="toggle-incident" data-inc="${esc(inc.id)}" aria-expanded="${open}"><span class="state-ic" style="color:${color}">${ic(inc.ongoing ? "alert-circle" : "history")}</span>
+        <span class="text"><span class="t1">${inc.ongoing ? `<span class="pill">${th("incident.ongoing")}</span> ` : ""}<b>${incidentCause(inc)}</b></span><span class="t2">${esc(fmtDate(inc.start, false))} · ${when}${secs > 0 ? ` · ${esc(span(secs))}` : ""}</span><span class="t2">${counts} · ${th("net.network", { name: esc(netLabel(inc.instance)) })}</span></span>
+        ${ic(open ? "chevron-up" : "chevron-down", "s18")}</button>
+        ${open ? `<div class="inc-events">${members}${more}</div>` : ""}</div>`;
+    }).join("")}</div>`;
+  };
   const renderActivity = () => {
+    if (state.logMode === "incidents") { $("#view").innerHTML = renderIncidents(); return; }
     const all = [...(state.data.events || [])].reverse().slice(0, 500);
     const events = all.slice(0, state.logLimit || LOG_PAGE);
-    if (!events.length) { $("#view").innerHTML = `<div class="card">${emptyState("history", th("activity.empty"), th("activity.empty_text"))}</div>`; return; }
+    if (!events.length) { $("#view").innerHTML = `<div class="card">${logModeChips()}${emptyState("history", th("activity.empty"), th("activity.empty_text"))}</div>`; return; }
     const groups = [];
     events.forEach((e) => { const day = fmtDate(e.time, false); if (!groups.length || groups[groups.length - 1].day !== day) groups.push({ day, items: [] }); groups[groups.length - 1].items.push(e); });
-    $("#view").innerHTML = `<div class="card">${groups.map((g) => `<div class="logday">${esc(g.day)}</div>` + g.items.map((e) => {
+    $("#view").innerHTML = `<div class="card">${logModeChips()}${groups.map((g) => `<div class="logday">${esc(g.day)}</div>` + g.items.map((e) => {
       const d = state.byIeee.get(e.ieee);
       const who = e.name && !IEEE_RE.test(e.name) ? e.name : nameOf(d) || e.ieee;
       const [icon, color] = EVENT_ICON(e.kind);
@@ -2115,11 +2581,20 @@
         <div class="set-row"><div class="text"><div class="t1">${th("settings.schedule")}</div><div class="t2">${th("settings.last_scans", { scans: esc(scans) })}</div></div><div class="ctl"><select class="field" id="scanHour" aria-label="${esc(t("settings.schedule"))}">${hours}</select></div></div>
         <div class="card-actions"><button class="btn" data-act="scan">${ic("sitemap", "s18")}${th("settings.scan_now")}</button></div>
       </div>
+      <div class="card"><div class="card-header"><div><h2 class="ch">${th("settings.naming")}</h2><small>${th("settings.naming_desc")}</small></div></div>
+        <div class="set-row wide-ctl"><div class="text"><div class="t1">${th("settings.naming_pattern")}</div><div class="t2">${th("settings.naming_tokens", NAME_TOKENS_HTML)}</div></div>
+          <div class="ctl"><input class="field" id="namePattern" aria-label="${esc(t("settings.naming_pattern"))}" aria-describedby="nameExample" autocomplete="off" spellcheck="false" maxlength="80" value="${esc(s.naming_pattern || "")}" placeholder="{area} {type} {n}"><button class="btn" data-act="save-naming">${th("common.save")}</button></div></div>
+        <div class="set-row"><div class="text"><div class="t1">${th("settings.naming_example")}</div><div class="t2" id="nameExample" aria-live="polite">${esc(namingExample(s.naming_pattern))}</div></div></div>
+      </div>
       <div class="card"><div class="card-header"><h2 class="ch">${th("settings.entities")}</h2></div>
         ${sw("ha_entities", s.ha_entities, t("settings.entities_add"), th("settings.entities_desc", { n: S.entities }))}
       </div>
       <div class="card"><div class="card-header"><h2 class="ch">${th("settings.ignored")}</h2></div>
         ${S.muted.length ? S.muted.map((m) => { const c = S.checks.find((x) => x.key === m.kind); return `<div class="set-row"><div class="text"><div class="t1">${esc(m.name)}</div><div class="t2">${esc(c ? checkLabel(c) : m.kind)} · ${m.until ? th("settings.until", { date: esc(fmtDate(m.until)) }) : th("settings.forever")}</div></div><div class="ctl"><button class="btn" data-act="unmute" data-ieee="${esc(m.ieee)}" data-kind="${esc(m.kind)}">${th("common.stop_ignoring")}</button></div></div>`; }).join("") + `<div class="card-actions"><button class="btn" data-act="unmute-all">${th("settings.stop_ignoring_all")}</button></div>` : `<div class="set-row"><div class="text"><div class="t2">${th("settings.nothing_ignored")}</div></div></div>`}
+      </div>
+      <div class="card" data-section="brands"><div class="card-header"><div><h2 class="ch">${th("brands.settings_title")}</h2><small>${th("brands.settings_desc")}</small></div></div>
+        ${brandList().length ? brandList().map((b) => `<div class="set-row compact"><div class="text"><div class="t1">${esc(b)}</div></div><div class="ctl"><button class="icon-btn" data-act="brand-remove" data-brand="${esc(b)}" aria-label="${esc(t("brands.remove", { brand: b }))}">${ic("delete", "s20")}</button></div></div>`).join("") : `<div class="set-row"><div class="text"><div class="t2">${th("brands.none")}</div></div></div>`}
+        <div class="stock-add"><input class="field" id="brandNew" maxlength="40" autocomplete="off" placeholder="${esc(t("battery.brand_placeholder"))}" aria-label="${esc(t("brands.new"))}"><button class="btn" data-act="brand-add">${ic("plus", "s18")}${th("shop.add")}</button></div>
       </div>
       <div class="card"><div class="card-header"><h2 class="ch">${th("settings.appearance")}</h2></div>
         <div class="set-row"><div class="text"><div class="t1">${th("settings.language")}</div><div class="t2">${th("settings.language_desc")}</div></div><div class="ctl"><select class="field" id="langSel" aria-label="${esc(t("settings.language"))}"><option value="auto" ${I18N.pref === "auto" ? "selected" : ""}>${th("settings.language_auto", { code: esc(I18N.auto) })}</option>${I18N.langs.map((l) => `<option value="${esc(l.code)}" ${I18N.pref === l.code ? "selected" : ""}>${esc(l.name || l.code)}</option>`).join("")}</select></div></div>
@@ -2146,6 +2621,7 @@
     });
     $("#view").prepend(nav);
     fadeEdges();
+    if (state.jumpBrands) { state.jumpBrands = false; const to = $("#view [data-section=brands]"); if (to) { window.scrollTo({ top: to.getBoundingClientRect().top + window.scrollY - $(".toolbar").offsetHeight - 8 }); $("#brandNew")?.focus({ preventScroll: true }); } }
   };
   // An out-of-range number goes back to the saved value, with a note under the field saying why.
   // The note stays until the next save re-renders the view, so it can't be missed like a snackbar.
@@ -2303,6 +2779,36 @@
       ${slow ? `<div class="alerts"><div class="alert" style="--a:${slow.severity === "warning" ? "var(--warning)" : "var(--info)"}">${ic("router-wireless")}<div class="body">${esc(issueDetail(slow))}</div></div></div>` : ""}`;
   };
 
+  // ------------------------------------------------------------ commands (<name>/set to the device's next state message)
+  const fmtMs = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.round(ms)} ms`);
+  const cmdSection = (d) => {
+    const c = d.metrics?.cmd;
+    if (!c || d.status === "removed") return "";
+    const line = c.commands_24h
+      ? [t("cmd.in_24h", { n: c.commands_24h }), c.median_ms !== null && c.median_ms !== undefined ? t("cmd.typical", { value: fmtMs(c.median_ms) }) : null, t("cmd.missed", { n: c.missed_24h || 0 })].filter(Boolean).join(" · ")
+      : t("cmd.none_24h");
+    // daily: [UTC day, typical ms or null when every command was missed, commands, missed]
+    const pts = c.daily || [], byDay = new Map(pts.map((p) => [p[0], p]));
+    const last = Math.max(Math.floor(Date.now() / 86400000) * 86400, pts.length ? pts[pts.length - 1][0] : 0);
+    const days = Array.from({ length: 7 }, (_, i) => last - (6 - i) * 86400);
+    const hi = Math.max(500, ...pts.map((p) => p[1]).filter((v) => v !== null));
+    const hov = days.map((day) => { const p = byDay.get(day); return [null, null, fmtHover(day, false), !p ? t("chart.no_data") : p[1] === null ? t("chart.commands_none", { n: p[2] }) : t("chart.commands", { value: fmtMs(p[1]), n: p[2], missed: p[3] })]; });
+    const bars = days.map((day, i) => {
+      const p = byDay.get(day), aria = `role="img" aria-label="${esc(`${hov[i][2]}: ${hov[i][3]}`)}"`;
+      if (!p) return `<i class="gap" ${aria}></i>`;
+      if (p[1] === null) return `<i class="none" ${aria}></i>`;
+      const cls = p[1] > 1000 ? "bad" : p[2] && p[3] / p[2] >= 0.2 ? "lo" : "";
+      return `<i class="${cls}" style="height:${Math.max(2, (p[1] / hi) * 100).toFixed(1)}%" ${aria}></i>`;
+    }).join("");
+    const lab = (day) => { const p = byDay.get(day); return !p ? "" : p[1] === null ? t("cmd.bar_none") : fmtMs(p[1]); };
+    const alerts = (d.issues || []).filter((i) => i.kind === "slow_commands" || i.kind === "missed_commands")
+      .map((i) => `<div class="alert" style="--a:${i.severity === "warning" ? "var(--warning)" : "var(--info)"}">${ic(KIND_ICON[i.kind])}<div class="body">${esc(issueDetail(i))}</div></div>`).join("");
+    const chart = pts.length ? `<div class="sub-h">${th("cmd.chart_title")}</div><div class="ping-bars" role="group" aria-label="${esc(t("cmd.chart_title"))}" ${hoverAttrs("cmd", { bars: true, p: hov })}>${bars}</div>
+      <div class="chart-axis"><span>${esc([fmtTick(days[0], 7 * 86400), lab(days[0])].filter(Boolean).join(" · "))}</span><span>${esc([fmtTick(last, 7 * 86400), lab(last)].filter(Boolean).join(" · "))}</span></div>` : "";
+    return `<div class="sub-h">${th("cmd.title")}</div><div class="card-content">${esc(line)}</div>${chart}
+      ${alerts ? `<div class="alerts">${alerts}</div>` : ""}<p class="tnote">${th("cmd.hint")}</p>`;
+  };
+
   // The Info tab shows the one action that fixes the device's current state as the filled button,
   // a second fitting action if there is one, and puts every other action in the More menu.
   const infoActions = (d) => {
@@ -2316,6 +2822,7 @@
       d.can_ping && { k: "ping", a: `data-act="ping" data-ieee="${id}" ${PING.get(d.ieee)?.busy ? "disabled" : ""}`, i: "refresh", l: th("ping.button") },
       canReplace(d) && { k: "replace", a: `data-act="replace" data-ieee="${id}"`, i: "swap-horizontal", l: th("replace.button") },
       !gone && d.type === "EndDevice" && { k: "move", a: `data-act="move" data-ieee="${id}"`, i: "swap-horizontal", l: th("more.change_router") },
+      !gone && d.type === "Router" && d.routing?.scanned_at && d.routing.scanned_at === state.data.networkmap?.[d.instance]?.scanned_at && { k: "whatif", a: `data-act="whatif" data-ieee="${id}"`, i: "lan-disconnect", l: th("whatif.button") },
       d.model && d.supported !== false && { href: `https://www.zigbee2mqtt.io/devices/${encodeURIComponent(String(d.model).replace(/\//g, "_"))}.html" target="_blank" rel="noopener`, i: "information-outline", l: th("more.docs") },
       d.ha_device_id && { href: `/config/devices/device/${esc(d.ha_device_id)}" target="_top`, i: "home-assistant", l: th("more.device_page") },
       z2m && !gone && { href: `${esc(z2m)}" target="_top`, i: "zigbee", l: "Zigbee2MQTT" },
@@ -2337,7 +2844,8 @@
     const lqi = lqiOf(d), power = powerOf(d);
     const bigState = st !== "active" ? STATUS[st].label : warnings(d)[0] ? issueLabel(warnings(d)[0]) : STATUS.active.label;
     const o = state.data.options || {};
-    const alerts = (d.issues || []).map((i) => `<div class="alert" style="--a:${i.severity !== "warning" ? "var(--info)" : severe(i, d) ? "var(--error)" : "var(--warning)"}">${ic(KIND_ICON[i.kind] || "alert")}<div class="body"><b>${esc(issueTitle(i))}.</b> ${esc(issueDetail(i))}</div><div class="alert-acts">${issueActions(i)}</div></div>`).join("")
+    // What the device's problem breaks in HA, once, under its first alert.
+    const alerts = (d.issues || []).map((i, n) => `<div class="alert" style="--a:${i.severity !== "warning" ? "var(--info)" : severe(i, d) ? "var(--error)" : "var(--warning)"}">${ic(KIND_ICON[i.kind] || "alert")}<div class="body"><b>${esc(issueTitle(i))}.</b> ${esc(issueDetail(i))}${n === 0 ? usedBy(d) : ""}</div><div class="alert-acts">${issueActions(i)}</div></div>`).join("")
       + (st === "removed" ? `<div class="alert" style="--a:var(--text-2)">${ic("information-outline")}<div class="body"><b>${th("more.removed")}</b> ${d.removed_at ? th("more.removed_on", { date: esc(fmtDate(d.removed_at)) }) : th("more.removed_no_date")}.${d.successor ? ` ${th("more.replaced_by", { device: devLink(d.successor) })}.` : ""}</div></div>` : "");
     return `
       <div class="more-hero">${stateIc(d)}<div class="big">${esc(bigState)}</div><div class="sub">${th("more.last_seen", { when: esc(relTime(d.last_seen, true)) })}</div></div>
@@ -2404,6 +2912,8 @@
       <div class="sub-h">${th("more.availability")}${d.uptime_30d !== null && d.uptime_30d !== undefined ? ` · ${th("dhealth.uptime", { percent: esc(d.uptime_30d) })}` : ""}</div>
       ${outages.length ? `<div class="rep-list">${outages.map((o) => { const s = (new Date(o.end || Date.now()) - new Date(o.start)) / 1000; return `<div><span>${esc(fmtDate(o.start))}</span><span class="muted">${o.end ? esc(span(s)) : th("dhealth.ongoing", { duration: esc(span(s)) })}</span></div>`; }).join("")}</div>` : `<div class="card-content muted">${th(d.availability ? "dhealth.no_outages" : "dhealth.no_outages_no_avail")}</div>`}
       ${reportEvery(d)}
+      ${cmdSection(d)}
+      ${reportingSection(d)}
       <div class="sub-h">${th("dhealth.readings")}</div>
       ${readings.length ? `<div class="rep-list">${readings.map(([k, r]) => `<div><span>${esc(readingName(k))}: ${esc(r.value)}</span><span class="muted">${th("dhealth.changed", { when: esc(relTime(r.changed_at, true)), n: esc(r.reports) })}</span></div>`).join("")}</div>` : `<div class="card-content muted">${th("dhealth.no_readings")}</div>`}
       ${limitsHtml(d, readings.length > 0)}
@@ -2443,6 +2953,37 @@
     return `<div class="sub-h">${th("timing.title")}</div>${steps}<div class="kv">${rows.join("")}</div><p class="tnote">${th(ot.tracked ? "timing.hint" : "timing.hint_off")}</p>`;
   };
 
+  // Attribute reporting Zigbee2MQTT set up (health.py / reporting.py audit it); bad ones get a warning and a fix.
+  const RPT_NEVER = 65535;
+  // Exact when it divides evenly, otherwise rounded like elsewhere (62000 s reads "17 h").
+  const rptDur = (s) => (s < 120 ? t("unit.seconds", { n: s }) : s % 3600 === 0 ? t("unit.hours", { n: s / 3600 }) : s % 60 === 0 && s < 7200 ? t("unit.minutes", { n: s / 60 }) : span(s));
+  const rptName = (r) => (r.key ? tx(`reporting.attr.${r.key}`, null, r.label) : r.label || `${r.cluster} ${r.attribute}`);
+  const rptWords = (r, v = r) => {
+    const parts = [];
+    if (typeof v.min === "number") parts.push(v.min === 0 ? t("reporting.min_any") : t("reporting.min", { every: rptDur(v.min) }));
+    if (typeof v.max === "number") parts.push(v.max === RPT_NEVER ? t("reporting.max_never") : v.max === 0 ? t("reporting.max_change_only") : t("reporting.max", { every: rptDur(v.max) }));
+    if (typeof v.change === "number") parts.push(v.change === 0 ? t("reporting.change_any") : t("reporting.change", { amount: `${Number((v.change * (r.scale || 1)).toPrecision(6))}${r.unit ? ` ${r.unit}` : ""}` }));
+    return parts.length ? parts.join(", ") : t("reporting.no_details");
+  };
+  const reportingSection = (d) => {
+    const a = d.reporting_audit;
+    if (!a || d.type === "Coordinator") return "";
+    const active = d.status === "active";
+    const eps = new Set([...a.items, ...a.missing].map((r) => r.ep));
+    const where = (r) => (eps.size > 1 || r.ep !== "1" ? ` <span class="muted">· ${th("bindings.endpoint", { ep: esc(r.ep) })}</span>` : "");
+    const ident = (r) => `data-ieee="${esc(d.ieee)}" data-ep="${esc(r.ep)}" data-cluster="${esc(r.cluster)}" data-attribute="${esc(r.attribute)}"`;
+    const warn = (body, btn) => `<div class="alert" style="--a:var(--warning)">${ic("alert")}<div class="body">${body}</div>${btn}</div>`;
+    const rows = a.items.map((r) => `<div><div class="t1">${esc(rptName(r))}${where(r)}</div><div class="t2">${esc(rptWords(r))}</div>${r.rule
+      ? warn(`<b>${th(`reporting.rule.${r.rule}`)}</b> ${th(`reporting.why.${r.rule}`)}${r.recommended ? ` ${th("reporting.recommended", { values: esc(rptWords(r, r.recommended)) })}` : ""}`,
+        active && r.recommended ? `<button class="btn" data-act="reporting-fix" ${ident(r)}>${ic("tune", "s18")}${th("reporting.use_recommended")}</button>` : "")
+      : ""}</div>`);
+    const missing = a.missing.map((r) => `<div><div class="t1">${esc(rptName(r))}${where(r)}</div><div class="t2">${th("reporting.not_set")}</div>${warn(`<b>${th("reporting.rule.never")}</b> ${th("reporting.why.missing")}`,
+      active ? `<button class="btn" data-act="reconfigure" data-ieee="${esc(d.ieee)}">${ic("refresh", "s18")}${th("common.reconfigure")}</button>` : "")}</div>`);
+    const body = rows.length || missing.length ? `<div class="rpt">${rows.join("")}${missing.join("")}</div>` : `<div class="card-content muted">${th("reporting.none")}</div>`;
+    const backed = a.confirmed ? `<p class="tnote">${th("reporting.confirmed", { n: esc(a.rate) })}</p>` : "";
+    return `<div class="sub-h">${th("reporting.title")}</div>${body}${backed}`;
+  };
+
   // Per-device "should report at least every" interval; stored in seconds, edited as a number + unit.
   const REPORT_UNITS = [["s", 1], ["min", 60], ["h", 3600]];
   const reportEvery = (d) => {
@@ -2476,7 +3017,7 @@
       <datalist id="batTypes">${["CR2032", "CR2450", "CR2477", "CR1632", "CR123A", "AAA", "AA", "18650", t("battery.rechargeable")].map((x) => `<option value="${esc(x)}"></option>`).join("")}</datalist>
       <div class="row-actions"><button class="btn" data-act="save-battery">${th("common.save")}</button><span class="saved" id="savedBat">${th("common.saved")}</span></div>
       <div class="sub-h">${th("battery.history")}</div>
-      ${reps.length ? `<div class="rep-list">${reps.map(([r, i]) => `<div><span>${esc(fmtDate(r.date, false))} <span class="muted">· ${esc(r.source)}${r.note ? ` · ${esc(r.note)}` : ""}</span></span><button class="icon-btn" data-act="bat-remove" data-index="${i}" aria-label="${esc(t("battery.remove_entry"))}">${ic("delete", "s20")}</button></div>`).join("")}</div>`
+      ${reps.length ? `<div class="rep-list">${reps.map(([r, i]) => `<div><span>${esc(fmtDate(r.date, false))}${r.brand ? ` · ${esc(r.brand)}` : ""} <span class="muted">· ${esc(r.source)}${r.note ? ` · ${esc(r.note)}` : ""}</span></span><span class="rep-acts"><button class="icon-btn" data-act="bat-brand" data-index="${i}" aria-label="${esc(t(r.brand ? "battery.brand_edit" : "battery.brand_add"))}">${ic("pencil", "s20")}</button><button class="icon-btn" data-act="bat-remove" data-index="${i}" aria-label="${esc(t("battery.remove_entry"))}">${ic("delete", "s20")}</button></span></div>`).join("")}</div>`
         : `<div class="card-content muted">${rec.last_replaced ? th("battery.last_replaced_bn", { date: esc(fmtDate(rec.last_replaced, false)) }) : th("battery.no_replacements")}</div>`}`;
   };
 
@@ -2666,7 +3207,7 @@
   const tabAsset = (d) => {
     const a = d.asset || {};
     const f = (k, key, type = "text", cls = "") => `<label class="${cls}">${th(key)}<input class="field" name="${k}" type="${type}" value="${esc(a[k] || "")}" autocomplete="off"></label>`;
-    return `
+    return `${maintSection(d)}
       <div class="sub-h">${th("asset.title")}</div>
       <form class="form" id="assetForm">${f("location", "asset.location", "text", "wide")}${f("purchase_date", "asset.purchased", "date")}${f("warranty_until", "asset.warranty", "date")}${f("shop", "asset.shop")}${f("price", "asset.price")}${f("serial", "asset.serial", "text", "wide")}</form>
       <div class="row-actions"><button class="btn" data-act="save-asset">${th("common.save")}</button><span class="saved" id="savedAsset">${th("common.saved")}</span></div>
@@ -2762,6 +3303,7 @@
   });
   $("#more").addEventListener("input", () => { state.editing = true; });
   $("#view").addEventListener("input", (e) => { if (e.target.closest("#pane")) state.editing = true; });
+  $("#view").addEventListener("input", (e) => { if (e.target.id === "namePattern") $("#nameExample").textContent = namingExample(e.target.value.trim()); });
   $("#view").addEventListener("scroll", (e) => { if (e.target.classList?.contains("more-body")) state.paneScroll = e.target.scrollTop; }, true);
 
   // ------------------------------------------------------------ confirm dialog
@@ -2778,7 +3320,7 @@
     (danger ? dlg.querySelector('button[value="cancel"]') : $("#cOk")).focus();
   });
   $("#confirmDlg").addEventListener("click", (e) => { if (e.target.id === "confirmDlg") e.target.close("cancel"); });
-  $("#confirmDlg").addEventListener("change", (e) => { if (e.target.name === "lo") leftoverOk(); });
+  $("#confirmDlg").addEventListener("change", (e) => { if (e.target.name === "lo") leftoverOk(); else if (e.target.name === "nm") namingOk(); });
 
   // ------------------------------------------------------------ pause alerts
   // Times are shown in the browser's zone; "tomorrow 08:00" is worked out by the app in its own zone.
@@ -2806,7 +3348,7 @@
 
   // A refresh redraws the view. Remember which control had keyboard focus so it can be focused again,
   // instead of focus dropping to the top of the page every minute.
-  const FOCUS_ATTRS = ["data-open", "data-act", "data-ieee", "data-view", "data-chip", "data-sort", "data-kind", "data-tab", "data-carry", "data-bt", "data-net", "data-type", "data-delta", "data-jump", "data-bulk", "data-n"];
+  const FOCUS_ATTRS = ["data-open", "data-act", "data-ieee", "data-view", "data-chip", "data-sort", "data-kind", "data-tab", "data-carry", "data-bt", "data-net", "data-type", "data-delta", "data-jump", "data-bulk", "data-n", "data-mode", "data-inc", "data-ep", "data-cluster", "data-attribute"];
   const focusKey = (el) => {
     if (!el || el === document.body || el === document.documentElement) return null;
     if (el.id) return `#${CSS.escape(el.id)}`;
@@ -2852,7 +3394,12 @@
     "toggle-coord": (b) => { const o = state.openCoords; if (!o.delete(b.dataset.bt)) o.add(b.dataset.bt); renderHealth(); },
     "toggle-group": (b) => { const g = state.openGroups; if (!g.delete(b.dataset.ieee)) g.add(b.dataset.ieee); renderHealth(); },
     "dev-all"() { state.devAll = true; renderDevices(); },
+    "models-all"() { state.modelsAll = true; renderHealth(); },
+    "models-sort": (b) => { state.modelsSort = b.dataset.v; renderHealth(); document.querySelector(`[data-act="models-sort"][data-v="${CSS.escape(b.dataset.v)}"]`)?.focus(); },
+    "model-filter": (b) => { state.query = b.dataset.q || ""; state.chip = "all"; go("devices"); },
     "log-more"() { state.logLimit = (state.logLimit || LOG_PAGE) + LOG_PAGE; renderActivity(); },
+    "log-mode"(b) { state.logMode = b.dataset.mode === "incidents" ? "incidents" : "all"; store.set("z2mt.logMode", state.logMode); renderActivity(); },
+    "toggle-incident"(b) { const o = state.openIncidents; if (!o.delete(b.dataset.inc)) o.add(b.dataset.inc); renderActivity(); },
     async copy(b) { try { await navigator.clipboard.writeText(b.dataset.ieee); snack(t("snack.ieee_copied")); } catch (e) { snack(b.dataset.ieee); } },
     async reconfigure(b) {
       const ieee = b.dataset.ieee, d = state.byIeee.get(ieee);
@@ -2863,6 +3410,20 @@
       b.disabled = true; b.classList.add("busy");
       snack(t("reconfigure.running", { name: nameOf(d) || ieee }), 8000);
       try { await api("api/reconfigure", { ieee }); snack(t("reconfigure.done")); } catch (err) { snack(t("reconfigure.failed", { error: err.message }), 5000); }
+      b.disabled = false; b.classList.remove("busy"); load();
+    },
+    async "reporting-fix"(b) {
+      const { ieee, ep, cluster, attribute } = b.dataset, d = state.byIeee.get(ieee);
+      const r = (d?.reporting_audit?.items || []).find((x) => x.ep === ep && x.cluster === cluster && x.attribute === attribute);
+      if (!r?.recommended) { snack(t("reporting.gone")); return; }
+      const rec = r.recommended;
+      const battery = d?.power_source === "Battery" || typeof d?.battery === "number";
+      const ok = await confirmDialog({ title: t("reporting.fix_title", { name: rptName(r) }), ok: t("reporting.use_recommended"), filled: true,
+        html: `<p>${th("reporting.fix_text", { name: esc(nameOf(d) || ieee) })}</p><div class="facts">${th("reporting.now", { values: esc(rptWords(r)) })}<br>${th("reporting.new", { values: esc(rptWords(r, rec)) })}</div>${statusOf(d) === "offline" ? `<div class="alert" style="--a:var(--error)">${ic("wifi-off")}<div class="body">${th("reconfigure.offline", { when: esc(relTime(d.last_seen, true)) })}</div></div>` : ""}${battery ? `<div class="alert" style="--a:var(--warning)">${ic("alert")}<div class="body">${th("reconfigure.battery")}</div></div>` : ""}` });
+      if (!ok) return;
+      b.disabled = true; b.classList.add("busy");
+      snack(t("reporting.sending", { name: rptName(r) }), 30000);
+      try { await api("api/reporting", { ieee, ep, cluster, attribute, min: rec.min, max: rec.max, change: rec.change }); snack(t("reporting.done")); } catch (err) { snack(t("reporting.failed", { error: err.message }), 6000); }
       b.disabled = false; b.classList.remove("busy"); load();
     },
     async "restore-bindings"(b) {
@@ -2972,6 +3533,7 @@
         if (name && name !== nameOf(d)) await api("api/rename", { ieee, name });
         if (area) await api("api/area", { ieee, area_id: area });
         if (btype) await api("api/battery", { ieee, info: { type: btype.replace(/^\d+\s*[x×]\s*/i, ""), quantity: (btype.match(/^(\d+)\s*[x×]/i) || [])[1] || 1, installed: todayIso() } });
+        delete state.pairForm[ieee];
         snack(t("common.saved")); await load();
       } catch (err) { snack(err.message, 5000); }
       b.disabled = false;
@@ -3026,9 +3588,9 @@
     async "battery-replaced"() {
       const ieee = state.open, d = state.byIeee.get(ieee);
       const ok = await confirmDialog({ title: t("battery.replaced"), ok: t("common.save"),
-        html: `<p>${th(d?.battery_notes ? "battery.records_bn" : "battery.records", { name: esc(nameOf(d) || ieee) })}</p><label>${th("battery.replaced_on")}<input class="field" type="date" id="cDate" value="${todayIso()}" max="${todayIso()}"></label><label>${th("battery.note")}<input class="field" id="cNote" maxlength="200" autocomplete="off"></label>` });
+        html: `<p>${th(d?.battery_notes ? "battery.records_bn" : "battery.records", { name: esc(nameOf(d) || ieee) })}</p><label>${th("battery.replaced_on")}<input class="field" type="date" id="cDate" value="${todayIso()}" max="${todayIso()}"></label>${brandField(lastBrandFor(d?.battery_record?.type))}<label>${th("battery.note")}<input class="field" id="cNote" maxlength="200" autocomplete="off"></label>` });
       if (!ok) return;
-      try { const res = await api("api/battery/replaced", { ieee, date: $("#cDate").value || todayIso(), note: $("#cNote").value }); snack(res.entry?.battery_notes_synced ? t("battery.saved_bn") : t("common.saved")); load(); } catch (err) { snack(err.message, 4000); }
+      try { const res = await api("api/battery/replaced", { ieee, date: $("#cDate").value || todayIso(), note: $("#cNote").value, brand: $("#cBrand").value.trim() }); snack(res.entry?.battery_notes_synced ? t("battery.saved_bn") : t("common.saved")); load(); } catch (err) { snack(err.message, 4000); }
     },
     async stock(b) {
       try {
@@ -3050,6 +3612,69 @@
         load();
       } catch (err) { snack(err.message); }
     },
+    async "bat-brand"(b) {
+      const ieee = state.open, index = Number(b.dataset.index);
+      const r = (state.byIeee.get(ieee)?.battery_record?.replacements || [])[index];
+      if (!r) return;
+      const ok = await confirmDialog({ title: t(r.brand ? "battery.brand_edit" : "battery.brand_add"), ok: t("common.save"),
+        html: `<p>${th("battery.brand_text", { date: esc(fmtDate(r.date, false)) })}</p>${brandField(r.brand || "", true)}` });
+      if (!ok) return;
+      try { await api("api/battery/brand", { ieee, index, brand: $("#cBrand").value.trim() }); snack(t("common.saved")); load(); } catch (err) { snack(err.message); }
+    },
+    "manage-brands"() {
+      const dlg = $("#confirmDlg"); if (dlg.open) dlg.close("cancel");
+      if ($("#more").open) closeDevice();
+      state.jumpBrands = true; go("settings");
+    },
+    async "brand-add"() {
+      const input = $("#brandNew"), brand = input?.value.trim();
+      if (!brand) { input?.focus(); return; }
+      try { const r = await api("api/battery_brands/add", { brand }); state.data.battery_brand_list = r.brands; renderSettings(false); $("#brandNew")?.focus(); snack(t("brands.added", { brand })); } catch (err) { snack(err.message, 4000); }
+    },
+    async "brand-remove"(b) {
+      try { const r = await api("api/battery_brands/remove", { brand: b.dataset.brand }); state.data.battery_brand_list = r.brands; renderSettings(false); snack(t("brands.removed", { brand: b.dataset.brand })); } catch (err) { snack(err.message, 4000); }
+    },
+    "mt-pick"(b) {
+      const d = state.byIeee.get(state.open), pick = d && mtSuggestions(d)[Number(b.dataset.i)], form = $("#mtForm");
+      if (!pick || !form) return;
+      form.elements.title.value = t(pick[0]); form.elements.every.value = pick[1]; form.elements.unit.value = pick[2];
+      state.editing = true;
+      form.elements.title.focus();
+    },
+    async "mt-save"() {
+      const form = $("#mtForm");
+      if (!form) return;
+      const v = Object.fromEntries(new FormData(form).entries());
+      const every = Number(v.every), title = v.title.trim();
+      if (!title) { snack(t("maint.need_title")); form.elements.title.focus(); return; }
+      if (!Number.isInteger(every) || every < 1 || every > (MT_UNITS[v.unit] || 0)) { snack(t("maint.range")); form.elements.every.focus(); return; }
+      const edit = state.mtEdit?.ieee === state.open ? state.mtEdit.id : null;
+      const task = { title, every, unit: v.unit, last_done: v.last_done, note: v.note.trim(), ...(edit ? { id: edit } : {}) };
+      try {
+        await api("api/maintenance", { ieee: state.open, task });
+        snack(t(edit ? "maint.saved" : "maint.added"));
+        state.mtEdit = null; state.editing = false;
+        load();
+      } catch (err) { snack(err.message, 4000); }
+    },
+    "mt-edit"(b) { state.mtEdit = { ieee: state.open, id: b.dataset.id }; state.editing = false; renderMore(); $("#mtForm")?.elements.title.focus(); },
+    "mt-cancel"() { state.mtEdit = null; state.editing = false; renderMore(); },
+    async "mt-remove"(b) {
+      const d = state.byIeee.get(state.open), task = (d?.maintenance || []).find((x) => x.id === b.dataset.id);
+      if (!task || !(await confirmDialog({ title: t("maint.remove_title"), ok: t("common.remove"), danger: true, html: `<p>${th("maint.remove_text", { title: esc(task.title) })}</p>` }))) return;
+      try {
+        await api("api/maintenance/remove", { ieee: state.open, id: task.id });
+        if (state.mtEdit?.id === task.id) state.mtEdit = null;
+        snack(t("maint.removed")); load();
+      } catch (err) { snack(err.message); }
+    },
+    async "mt-done"(b) {
+      b.disabled = true;
+      try {
+        const r = await api("api/maintenance/done", { ieee: b.dataset.ieee, id: b.dataset.id });
+        snack(t("maint.marked", { title: r.task.title })); load();
+      } catch (err) { b.disabled = false; snack(err.message); }
+    },
     async "bat-remove"(b) {
       if (!(await confirmDialog({ title: t("battery.remove_title"), ok: t("common.remove"), danger: true, html: `<p>${th("battery.remove_text")}</p>` }))) return;
       try { await api("api/battery/remove", { ieee: state.open, index: Number(b.dataset.index) }); load(); } catch (err) { snack(err.message); }
@@ -3063,6 +3688,31 @@
       try { await api("api/forget", { ieee }); closeDevice(); snack(t("forget.done")); load(); } catch (err) { snack(err.message); }
     },
     async "save-notify"() { await saveSettings({ notify_service: $("#notifySvc").value.trim() }); },
+    async "naming-bulk"(b) {
+      const list = namingRenames();
+      if (!list.length) { snack(t("naming.none")); return; }
+      const html = `<p>${th("naming.bulk_text", { pattern: `<span class="mono">${esc(state.data.options?.naming_pattern || "")}</span>` })}</p>
+        <div class="lo-list">${list.map((i) => { const d = state.byIeee.get(i.ieee); return `<label class="pick"><input type="checkbox" name="nm" value="${esc(i.ieee)}" checked>${d ? stateIc(d) : `<span class="state-ic">${ic("zigbee")}</span>`}<div class="text"><div class="t1">${esc(d?.friendly_name || i.ieee)}</div><div class="t2">${th("naming.to", { name: `<span class="to">${esc(i.params.suggested)}</span>` })}${d?.area ? ` · ${esc(d.area)}` : ""}</div></div></label>`; }).join("")}</div>`;
+      const pending = confirmDialog({ title: t("naming.bulk_title", { n: list.length }), html, ok: "", filled: true });
+      namingOk();
+      if (!(await pending)) return;
+      const picked = new Set([...document.querySelectorAll('#cText input[name="nm"]:checked')].map((x) => x.value));
+      const todo = list.filter((i) => picked.has(i.ieee));
+      if (!todo.length) return;
+      b.disabled = true; b.classList.add("busy");
+      let done = 0;
+      const failed = [];
+      // One at a time: each rename waits for Zigbee2MQTT's reply (it also renames in Home Assistant).
+      for (const i of todo) {
+        snack(t("naming.progress", { n: done + failed.length + 1, total: todo.length }), 20000);
+        try { await api("api/rename", { ieee: i.ieee, name: i.params.suggested }); done++; }
+        catch (err) { failed.push(`${state.byIeee.get(i.ieee)?.friendly_name || i.ieee}: ${err.message}`); }
+      }
+      b.disabled = false; b.classList.remove("busy");
+      snack(failed.length ? t("naming.partly", { n: done, failed: failed.length, error: failed[0] }) : t("naming.done", { n: done }), failed.length ? 8000 : 3000);
+      load();
+    },
+    async "save-naming"() { await saveSettings({ naming_pattern: $("#namePattern").value.trim() }); },
     async "test-notify"(b) { b.disabled = true; try { const r = await api("api/test-notification", {}); snack(r.channels.length ? t("snack.test_sent", { channels: r.channels.join(", ") }) : t("snack.all_off"), 4000); } catch (err) { snack(err.message); } b.disabled = false; },
   };
 
@@ -3223,6 +3873,27 @@
   const routerLabel = (r) => (r.type === "Coordinator" ? t("map.coordinator") : `${r.area ? `${r.area} · ` : ""}${nameOf(r) || r.ieee}`);
   const keepOpen = () => `<label>${th("pair.keep_open")}<select class="field" id="pairSecs">${[[120, 2], [180, 3], [254, 4]].map(([v, n]) => `<option value="${v}" ${v === 180 ? "selected" : ""}>${th("unit.minutes_long", { n })}</option>`).join("")}</select></label>`;
   const fmtLeft = (l) => `${Math.floor(l / 60)}:${String(l % 60).padStart(2, "0")}`;
+  // Where a device that joined in this session has got to. Zigbee2MQTT's own interview state wins once it has one.
+  const pairStep = (d, session) => (d.interview_state === "SUCCESSFUL" ? "successful" : d.interview_state === "FAILED" ? "failed" : session?.progress?.[d.ieee] || "joined");
+  const PAIR_STEPS = ["joined", "interviewing", "successful"];
+  const pairSteps = (step) => {
+    const at = step === "failed" ? 2 : step === "announced" ? 0 : PAIR_STEPS.indexOf(step);
+    return `<ol class="pair-steps">${PAIR_STEPS.map((k, n) => {
+      const fail = step === "failed" && n === 2;
+      const cls = fail ? "fail" : n < at || (n === at && step === "successful") ? "done" : n === at ? "now" : "";
+      return `<li class="${cls}" ${n === at ? 'aria-current="step"' : ""}>${ic(fail ? "close" : cls === "done" ? "check" : n === at ? "refresh" : "minus", "s18")}${th(fail ? "pair.step.failed" : `pair.step.${k}`)}</li>`;
+    }).join("")}</ol>`;
+  };
+  const areaName = (id) => (id ? (state.areas || []).find((a) => a.id === id)?.name ?? null : null);
+  // The pattern's name for a device still named by its address, or null (no pattern, or it already has a name).
+  const pairPrefill = (d, area, taken) => {
+    const pattern = state.data?.options?.naming_pattern;
+    // A device that has only just joined may have no name yet; Zigbee2MQTT will call it by its address.
+    const current = d.friendly_name || d.ieee || "";
+    if (!pattern || !IEEE_RE.test(current)) return null;
+    const own = new Set(taken); own.delete(current.toLowerCase());
+    return renderPattern(pattern, { area: nameValue(area), type: nameValue(d.kind), model: nameValue(d.model) }, own);
+  };
   const renderPair = () => {
     const dlg = $("#pairDlg");
     const move = state.move ? state.byIeee.get(state.move.target) : null;
@@ -3255,6 +3926,8 @@
              <div class="more-actions"><button class="btn filled" data-act="pair-start">${ic("swap-horizontal", "s18")}${th("pair.start")}</button></div>`;
     } else {
       const joined = (session?.joined || []).map((ieee) => state.byIeee.get(ieee) || { ieee });
+      // Prefilled names stay unique across the devices in this list too.
+      const taken = takenNames(null);
       body = `${permit.on ? `<div class="more-hero"><span class="state-ic" style="color:var(--primary)">${ic("cellphone-wireless")}</span><div class="big" id="pairLeft">${fmtLeft(left)}</div><div class="sub">${session?.via_name ? th("pair.open_on_via", { net: esc(netLabel(net)), via: `<b>${esc(session.via_name)}</b>` }) : th("pair.open_on", { net: esc(netLabel(net)) })}</div></div>
             <div class="more-actions"><button class="btn outlined danger" data-act="pair-stop">${th("pair.stop")}</button></div>`
           : `<div class="form"><label>${th("more.network")}<select class="field" id="pairNet">${state.data.instances.map((bt) => `<option value="${esc(bt)}" ${bt === net ? "selected" : ""}>${esc(netLabel(bt))}</option>`).join("")}</select></label>
@@ -3264,13 +3937,21 @@
              <div class="more-actions"><button class="btn filled" data-act="pair-start">${ic("plus", "s18")}${th("pair.start_pairing")}</button></div>`}
         <div class="sub-h">${th("pair.joined")}</div>
         ${joined.length ? joined.map((d) => {
-          const ready = d.interview_state === "SUCCESSFUL";
+          const step = pairStep(d, session);
+          const ready = step === "successful";
           const isBat = d.power_source === "Battery" || typeof d.battery === "number";
-          return `<div class="pair-dev"><div class="row" style="border:0;min-height:56px">${d.type ? stateIc(d) : `<span class="state-ic">${ic("zigbee")}</span>`}<div class="text"><div class="t1">${esc(nameOf(d) || d.ieee)}</div><div class="t2">${ready ? esc(deviceLine(d) || t("pair.identified")) : th("pair.interviewing")} · <span class="mono">${esc(d.ieee)}</span></div></div></div>
-            ${ready ? `<div class="form"><label>${th("devices.col.name")}<input class="field" name="name" value="${esc(nameOf(d) || "")}" autocomplete="off"></label>
-              <label>${th("devices.col.area")}<select class="field" name="area"><option value="">${th("common.choose")}</option>${(state.areas || []).map((a) => `<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("")}</select></label>
-              ${isBat ? `<label class="wide">${th("devices.col.battery")}<input class="field" name="btype" list="batTypes2" value="${esc(d.battery_record?.label || "")}" placeholder="${esc(t("pair.battery_placeholder"))}"></label>` : ""}</div>
-              <div class="row-actions"><button class="btn" data-act="pair-save" data-ieee="${esc(d.ieee)}">${th("common.save")}</button></div>` : ""}</div>`;
+          const f = state.pairForm[d.ieee] || {};
+          const areaId = f.area ?? (state.areas || []).find((a) => a.name === d.area)?.id ?? "";
+          const name = ready ? (f.touched ? f.name : pairPrefill(d, areaName(areaId) ?? d.area, taken) || nameOf(d) || "") : "";
+          if (ready && name) taken.add(name.toLowerCase());
+          const line = ready ? esc(deviceLine(d) || t("pair.identified")) : step === "failed" ? th("pair.step.failed") : th("pair.interviewing");
+          return `<div class="pair-dev" data-ieee="${esc(d.ieee)}"><div class="row" style="border:0;min-height:56px">${d.type ? stateIc(d) : `<span class="state-ic">${ic("zigbee")}</span>`}<div class="text"><div class="t1">${esc(nameOf(d) || d.ieee)}</div><div class="t2">${line} · <span class="mono">${esc(d.ieee)}</span></div></div></div>
+            ${pairSteps(step)}
+            ${step === "failed" ? `<div class="alerts"><div class="alert" style="--a:var(--warning)">${ic("alert")}<div class="body">${th("issue.unidentified.detail")} ${th("pair.failed_hint")}</div></div></div>` : ""}
+            ${ready ? `<div class="form"><label>${th("devices.col.name")}<input class="field" name="name" value="${esc(name)}" autocomplete="off" maxlength="120"></label>
+              <label>${th("devices.col.area")}<select class="field" name="area"><option value="">${th("common.choose")}</option>${(state.areas || []).map((a) => `<option value="${esc(a.id)}" ${a.id === areaId ? "selected" : ""}>${esc(a.name)}</option>`).join("")}</select></label>
+              ${isBat ? `<label class="wide">${th("devices.col.battery")}<input class="field" name="btype" list="batTypes2" value="${esc(f.btype ?? (d.battery_record?.label || ""))}" placeholder="${esc(t("pair.battery_placeholder"))}"></label>` : ""}</div>
+              <div class="row-actions"><button class="btn filled" data-act="pair-save" data-ieee="${esc(d.ieee)}">${th("pair.apply")}</button></div>` : ""}</div>`;
         }).join("") : `<div class="card-content muted">${permit.on ? th("pair.waiting_join") : th("pair.nothing_yet")}</div>`}
         <datalist id="batTypes2">${["CR2032", "CR2450", "CR2477", "CR1632", "CR123A", "AAA", "2× AAA", "AA", "2× AA", "4× AA"].map((t) => `<option value="${t}"></option>`).join("")}</datalist>`;
     }
@@ -3280,7 +3961,26 @@
     clearInterval(pairTick);
     if (permit.on) pairTick = setInterval(() => { const el = $("#pairLeft"); if (!el) return; const l = Math.max(0, Math.round((new Date(permit.end) - Date.now()) / 1000)); el.textContent = fmtLeft(l); if (!l) { clearInterval(pairTick); load(); } }, 1000);
   };
-  $("#pairDlg").addEventListener("close", () => { clearInterval(pairTick); state.move = null; });
+  $("#pairDlg").addEventListener("close", () => { clearInterval(pairTick); state.move = null; state.pairForm = {}; });
+  // Typed values survive the live re-renders; the name follows the area until it's edited by hand.
+  $("#pairDlg").addEventListener("input", (e) => {
+    const box = e.target.closest(".pair-dev");
+    if (!box || !["name", "btype"].includes(e.target.name)) return;
+    const f = (state.pairForm[box.dataset.ieee] ||= {});
+    if (e.target.name === "name") { f.name = e.target.value; f.touched = true; } else f.btype = e.target.value;
+  });
+  $("#pairDlg").addEventListener("change", (e) => {
+    const box = e.target.closest(".pair-dev");
+    if (!box || e.target.name !== "area") return;
+    const ieee = box.dataset.ieee, f = (state.pairForm[ieee] ||= {});
+    f.area = e.target.value;
+    const d = state.byIeee.get(ieee), input = box.querySelector("[name=name]");
+    if (!d || !input || f.touched) return;
+    const taken = takenNames(ieee);
+    $("#pairDlg").querySelectorAll(".pair-dev [name=name]").forEach((el) => { if (el !== input && el.value.trim()) taken.add(el.value.trim().toLowerCase()); });
+    const name = pairPrefill(d, areaName(f.area) ?? d.area, taken);
+    if (name) input.value = name;
+  });
   $("#pairDlg").addEventListener("change", (e) => { if (e.target.id === "pairVia") { if (state.move) state.move.via = e.target.value; else state.pairVia = e.target.value; } });
   $("#pairDlg").addEventListener("change", (e) => { if (e.target.id === "pairNet") { state.pairNet = e.target.value; renderPair(); } });
 
@@ -3369,6 +4069,27 @@
       <div class="more-body">${body}</div>${foot ? `<div class="rep-foot">${foot}</div>` : ""}`;
     dlg.querySelector(".more-body").scrollTop = r.step === 1 ? scroll : 0;
   };
+  // What-if buttons on the map and the device panel (helpers next to the map code).
+  Object.assign(actions, {
+    async whatif(b) {
+      const ieee = b.dataset.ieee, bt = b.dataset.net || state.byIeee.get(ieee)?.instance;
+      if (!ieee || !bt) return;
+      const job = { ieee, busy: true };
+      MAP.whatif[bt] = job;
+      const older = MAP.scanSel[bt] || MAP.cmpSel[bt];
+      if (older) { MAP.scanSel[bt] = null; MAP.cmpSel[bt] = null; delete (MAP.pos || {})[bt]; }
+      if (state.view !== "map") { if ($("#more").open) closeDevice(); go("map"); }
+      else if (older) renderMap(true);
+      updateWhatIf(bt, true);
+      let next;
+      try { next = { ieee, res: await api(`api/whatif?net=${encodeURIComponent(bt)}&ieee=${encodeURIComponent(ieee)}`) }; }
+      catch (err) { next = { ieee, err: err.message }; }
+      if (MAP.whatif[bt] !== job) return;
+      MAP.whatif[bt] = next;
+      updateWhatIf(bt, true);
+    },
+    "whatif-clear"(b) { delete MAP.whatif[b.dataset.net]; updateWhatIf(b.dataset.net); },
+  });
   Object.assign(actions, {
     replace(b) {
       const old = state.byIeee.get(b.dataset.ieee || state.open);
@@ -3385,6 +4106,7 @@
     "rep-back"() { const r = state.replace; if (r && r.step > 1 && !r.busy) { r.step -= 1; renderReplace(); } },
     "rep-next"() { const r = state.replace; if (!r || (r.step === 1 && !r.new)) return; r.step = Math.min(3, r.step + 1); renderReplace(); },
     "open-history"(b) { state.moreTab = "history"; openDevice(b.dataset.ieee, "history"); },
+    "open-health"(b) { state.moreTab = "health"; openDevice(b.dataset.ieee, "health"); },
     "rep-open"(b) { $("#replaceDlg").close(); openDevice(b.dataset.ieee, "history"); },
     async "rep-apply"() {
       const r = state.replace; if (!r || r.busy) return;

@@ -24,7 +24,9 @@ from pathlib import Path
 from urllib.parse import unquote
 from zoneinfo import ZoneInfo
 
+import alert_actions
 import paho.mqtt.client as mqtt
+import prometheus
 from battery_library import BatteryLibrary
 from discovery import AVAILABILITY, Discovery
 from discovery import BASE as DISCOVERY_BASE
@@ -32,15 +34,21 @@ from ha import HomeAssistant
 from health import CHECKS, DEFAULT_NOTIFY, alert_title, mutes_of, nested, notify_kinds, offer_new_kinds
 from metrics import Metrics
 from mqtt_status import NOTIFICATION_ID, NOTIFICATION_TITLE, MqttStatus, explain_error, explain_refusal, probe
+from naming import clean_pattern
 from ota import OtaManager, parse_window
+from reporting import clean_fix as clean_reporting_fix
 from tracker import IEEE_RE, Tracker, shopping_text
 from tracker import _display_name as tracker_display_name
+from usage import UsageRefresher
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", stream=sys.stdout)
 _LOGGER = logging.getLogger("z2m_tracker")
 
 VERSION = "1.4.0"
 PORT = 8099
+# Prometheus scrape port: only opened when metrics_token is set.
+METRICS_PORT = 9099
+METRICS_TOKEN_MIN = 16
 DATA_PATH = "/data/history.json"
 METRICS_PATH = "/data/metrics.json"
 SCANS_PATH = "/data/scans.json"
@@ -77,6 +85,7 @@ DEFAULT_OPTIONS = {
     "z2m_panels": [],
     "persistent_notifications": True,
     "notify_service": "",
+    "alert_actions": True,
     "alert_on_join": True,
     "offline_alert_minutes": 60,
     "critical_offline_minutes": 5,
@@ -98,6 +107,7 @@ DEFAULT_OPTIONS = {
     "quiet_hours": False,
     "quiet_start": "23:00",
     "quiet_end": "07:00",
+    "naming_pattern": "",
 }
 
 CHECK_KEYS = {key for key, _, _, _ in CHECKS}
@@ -105,6 +115,10 @@ CHECK_KEYS = {key for key, _, _, _ in CHECKS}
 # no time to live), iOS shows it as time-sensitive, which breaks through Focus modes.
 CRITICAL_PUSH = {"priority": "high", "ttl": 0, "push": {"interruption-level": "time-sensitive"}}
 EVENT_KEYS = {"joined": "joined", "left": "left", "interview failed": "interview_failed"}
+# Health checks a "Mute 24 h" button may mute (events like joined happen once, so there is nothing to mute).
+MUTABLE_KINDS = {key for key, _, _, event in CHECKS if not event}
+# Alerts that don't get a "Used by" line: nothing in HA uses a device that has only just joined.
+NO_USAGE_KINDS = {"joined", "interview failed", "test", "digest"}
 
 
 # Settings the web UI may change, with validators returning the clean value (or raising ValueError).
@@ -183,6 +197,7 @@ SETTINGS = {
     "quiet_hours": _bool,
     "quiet_start": _clock,
     "quiet_end": _clock,
+    "naming_pattern": clean_pattern,
 }
 
 
@@ -204,9 +219,21 @@ def load_options() -> dict:
     except ValueError:
         _LOGGER.warning("Ignoring notify_service %r: only notify services are allowed", options.get("notify_service"))
         options["notify_service"] = ""
+    try:
+        options["naming_pattern"] = clean_pattern(options.get("naming_pattern"))
+    except ValueError as err:
+        _LOGGER.warning("Ignoring naming_pattern %r: %s", options.get("naming_pattern"), err)
+        options["naming_pattern"] = ""
     if not options.get("alert_on_join", True) and "joined" in options["notify_checks"]:
         options["notify_checks"] = [k for k in options["notify_checks"] if k != "joined"]
     return options
+
+
+def app_panel() -> str | None:
+    """This app's sidebar page, /app/<slug>. Supervisor names the container after the slug
+    (7066b6f6_z2m_tracker runs as 7066b6f6-z2m-tracker); None when that doesn't look like one."""
+    slug = socket.gethostname().replace("-", "_").lower()
+    return f"/app/{slug}" if re.fullmatch(r"[a-z0-9]+_z2m_tracker", slug) else None
 
 
 def offer_new_notify_kinds() -> None:
@@ -281,6 +308,7 @@ def ha_registry_changed() -> None:
 scan_lock = threading.Lock()
 ping_lock = threading.Lock()
 ota_manager = OtaManager(tracker, options, home_assistant.logbook)
+usage_refresher = UsageRefresher(tracker, home_assistant)
 
 
 # -------------------------------------------------------------------- alerts
@@ -324,10 +352,24 @@ class Alerts:
         push = None
         if critical:
             data["critical"] = True
-            push = CRITICAL_PUSH
+            push = dict(CRITICAL_PUSH)
+        if options.get("notify_service") and options.get("alert_actions", True):
+            push = {**(push or {}), **self.phone_extras(key, kind, ieee)}
         _LOGGER.info("Alert: %s - %s", title, message)
 
         def job() -> None:
+            nonlocal message
+            # Say what the problem breaks: the automations, scripts and scenes that use the device.
+            if ieee and kind not in NO_USAGE_KINDS:
+                try:
+                    usage_refresher.refresh([ieee])
+                    line = tracker.usage_line(ieee)
+                except Exception:  # noqa: BLE001 - the alert still goes out without the line
+                    _LOGGER.exception("Looking up what uses %s failed", ieee)
+                    line = None
+                if line:
+                    message = f"{message}\n\n{line}"
+                    data["message"] = message
             if options.get("fire_events", True):
                 home_assistant.fire_event("z2m_tracker_alert", data)
             if options.get("persistent_notifications"):
@@ -336,6 +378,39 @@ class Alerts:
                 home_assistant.notify(options["notify_service"], title, message, push)
 
         self.queue.put(job)
+
+    @staticmethod
+    def buttons(kind: str, ieee: str) -> list[str]:
+        """Buttons for one alert: none for network, group and event alerts, the digest or the test."""
+        if kind not in MUTABLE_KINDS or not IEEE_RE.fullmatch(ieee or ""):
+            return []
+        with tracker.lock:
+            record = tracker.data["devices"].get(ieee)
+            if record is None:
+                return []
+            verbs = ["MUTE24"]
+            if tracker.can_ping(record) is None:
+                verbs.append("PING")
+            if kind in alert_actions.BATTERY_KINDS and tracker.is_battery_device(record):
+                verbs.append("BATTERY")
+        return verbs
+
+    def phone_extras(self, key: str, kind: str, ieee: str) -> dict:
+        """Companion app data: buttons, a tag (a repeat of the same alert replaces the old one)
+        and the page that opens on tap."""
+        extras: dict = {"tag": "z2m_tracker_" + re.sub(r"[^A-Za-z0-9_]", "_", key)[:120]}
+        panel = app_panel()
+        if panel:
+            url = f"{panel}/{ieee}" if IEEE_RE.fullmatch(ieee or "") else panel
+            extras["url"] = url  # iOS
+            extras["clickAction"] = url  # Android
+        verbs = self.buttons(kind, ieee)
+        if verbs:
+            with tracker.lock:
+                store = tracker.data.setdefault("alert_actions", {})
+                extras["actions"] = alert_actions.issue(store, ieee, kind, verbs, time.time())
+                tracker.dirty = True
+        return extras
 
     def _dismiss(self, key: str) -> None:
         if options.get("persistent_notifications"):
@@ -442,6 +517,49 @@ class Alerts:
 
 alerts = Alerts()
 tracker.on_event = alerts.on_event
+
+
+def on_notification_action(data: dict) -> None:
+    """A button on a phone alert was pressed (HA's mobile_app_notification_action event).
+    Runs on the websocket thread: check the press here, do the work on its own thread."""
+    with tracker.lock:
+        store = tracker.data.get("alert_actions")
+        claimed = alert_actions.claim(store, data.get("action"), time.time()) if isinstance(store, dict) else None
+        if claimed:
+            tracker.dirty = True
+    if claimed is None:
+        if str(data.get("action") or "").startswith(alert_actions.PREFIX):
+            _LOGGER.warning("Ignored a notification button that is unknown, expired or already used")
+        return
+    threading.Thread(target=run_notification_action, args=claimed, name="alert-action", daemon=True).start()
+
+
+def run_notification_action(verb: str, ieee: str, kind: str) -> None:
+    with tracker.lock:
+        record = tracker.data["devices"].get(ieee)
+        name = (tracker_display_name(record) if record else None) or ieee
+    if verb == "MUTE24":
+        if kind in MUTABLE_KINDS and tracker.set_muted(ieee, kind, True, 1):
+            _LOGGER.info("Muted %s on %s for 24 h from a phone alert", kind, name)
+    elif verb == "PING":
+        result = tracker.ping(ieee)
+        if result.get("ok"):
+            message = f"{name} answered the ping in {result['ms']} ms."
+        elif result.get("timeout"):
+            message = f"{name} didn't answer the ping within {result.get('seconds')} s."
+        else:
+            message = f"Couldn't ping {name}: {result.get('error')}"
+        _LOGGER.info("Ping from a phone alert: %s", message)
+        if options.get("notify_service"):
+            tag = "z2m_tracker_ping_" + ieee
+            alerts.queue.put(
+                lambda: home_assistant.notify(options["notify_service"], "Zigbee ping", message, {"tag": tag})
+            )
+    elif verb == "BATTERY":
+        if kind in alert_actions.BATTERY_KINDS:
+            today = datetime.now(tracker.local_tz).date().isoformat()
+            if record_battery_replaced(ieee, today, "Phone notification", ""):
+                _LOGGER.info("Battery replaced on %s, from a phone alert", name)
 
 
 # ---------------------------------------------------------------------- MQTT
@@ -558,7 +676,7 @@ def on_message(client, userdata, message):
             return
         for base_topic in base_topics:
             if topic.startswith(f"{base_topic}/"):
-                tracker.handle_message(base_topic, topic, message.payload)
+                tracker.handle_message(base_topic, topic, message.payload, bool(message.retain))
                 return
     except Exception:  # noqa: BLE001 - malformed input from the broker
         _LOGGER.exception("Handling an MQTT message failed")
@@ -646,8 +764,8 @@ def run_router_pings() -> bool:
     return True
 
 
-def record_battery_replaced(ieee: str, date: str, source: str, note: str) -> dict | None:
-    entry = tracker.add_battery_replacement(ieee, date, source, note)
+def record_battery_replaced(ieee: str, date: str, source: str, note: str, brand: str | None = None) -> dict | None:
+    entry = tracker.add_battery_replacement(ieee, date, source, note, brand)
     if entry is None:
         return None
     device_id = tracker.ha_device_ids.get(ieee)
@@ -833,6 +951,7 @@ def apply_settings(changes: dict) -> dict:
         "frozen_alert_hours",
         "battery_alert_percent",
         "chatty_per_hour",
+        "naming_pattern",
     } & set(clean):
         tracker.evaluate_health()
     if {"alerts_enabled", "notify_checks", "disabled_checks"} & set(clean):
@@ -893,6 +1012,7 @@ def scheduler() -> None:
                 ha_changed_at = 0.0
                 refresh_home_assistant()
                 leftovers_due = True
+                usage_refresher.request_full()
                 last_ha = now
             # Waits for every network's device list; until then all devices look unknown.
             if leftovers_due and tracker.lists_ready.is_set():
@@ -905,6 +1025,9 @@ def scheduler() -> None:
                 alerts.check()
                 discovery.sync()
                 last_health = now
+            # What uses devices with a problem: after a registry refresh, for new issues,
+            # and retries after a failure. Kept for the next round while a lookup runs.
+            usage_refresher.start_due()
             hour = int(options.get("networkmap_hour", -1))
             local = datetime.now(tracker.local_tz)
             if hour >= 0 and local.hour == hour and last_scan_day != local.date():
@@ -1059,6 +1182,54 @@ def _page_csp() -> str:
 PAGE_CSP = _page_csp()
 
 
+class MetricsHandler(BaseHTTPRequestHandler):
+    """GET /metrics in Prometheus text format, for a scraper that sends the metrics_token."""
+
+    server_version = f"Z2MTracker/{VERSION}"
+
+    def log_message(self, format, *args):  # noqa: A002 - signature defined by base class
+        return
+
+    def do_GET(self) -> None:  # noqa: N802 - http.server naming
+        token = str(options.get("metrics_token") or "")
+        auth = self.headers.get("Authorization") or ""
+        if not (auth.startswith("Bearer ") and hmac.compare_digest(auth[7:].strip().encode(), token.encode())):
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", 'Bearer realm="z2m_tracker"')
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        if self.path.split("?", 1)[0] != "/metrics":
+            self.send_error(404)
+            return
+        body = prometheus.render(prometheus.collect(tracker.prometheus_snapshot(), VERSION)).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def start_metrics_server() -> ThreadingHTTPServer | None:
+    """Open the Prometheus port when metrics_token is set and long enough; otherwise stay closed."""
+    token = str(options.get("metrics_token") or "")
+    if not token:
+        return None
+    if len(token) < METRICS_TOKEN_MIN:
+        _LOGGER.warning("Prometheus metrics stay off: metrics_token must be at least %d characters", METRICS_TOKEN_MIN)
+        return None
+    try:
+        server = ThreadingHTTPServer(("0.0.0.0", METRICS_PORT), MetricsHandler)
+    except OSError as err:
+        _LOGGER.warning("Couldn't open the Prometheus metrics port %d: %s", METRICS_PORT, err)
+        return None
+    server.daemon_threads = True
+    threading.Thread(target=server.serve_forever, name="metrics-http", daemon=True).start()
+    _LOGGER.info("Prometheus metrics on port %d at /metrics", METRICS_PORT)
+    return server
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = f"Z2MTracker/{VERSION}"
 
@@ -1166,6 +1337,24 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(400, {"error": "Unknown network"})
             else:
                 self._json(200, {"scans": tracker.scan_history(net)})
+        elif path == "/api/whatif":
+            query = dict(
+                part.split("=", 1)
+                for part in (self.path.split("?", 1)[1] if "?" in self.path else "").split("&")
+                if "=" in part
+            )
+            net = unquote(query.get("net", ""))
+            ieee = unquote(query.get("ieee", "")).lower()
+            if net not in base_topics:
+                self._json(400, {"error": "Unknown network"})
+            elif not IEEE_RE.match(ieee):
+                self._json(400, {"error": "Not a device address"})
+            else:
+                result = tracker.router_what_if(net, ieee)
+                if result is None:
+                    self._json(404, {"error": "Not a router in the last routing scan"})
+                else:
+                    self._json(200, result)
         elif path == "/api/parents":
             query = dict(
                 part.split("=", 1)
@@ -1289,6 +1478,15 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/reconfigure":
                 result = tracker.reconfigure(ieee)
                 self._json(200 if result["ok"] else 502, result)
+            elif path == "/api/reporting":
+                # One configured reporting ({ieee, ep, cluster, attribute, min, max, change}) set through Z2M.
+                fix, error = clean_reporting_fix(body)
+                if fix is None:
+                    self._json(400, {"ok": False, "error": error})
+                    return
+                result = tracker.configure_reporting(ieee, fix)
+                status = {None: 200, "unknown": 404, "invalid": 400}.get(result.get("reason"), 502)
+                self._json(status, result)
             elif path == "/api/networkmap":
                 instance = body.get("instance") if body.get("instance") in base_topics else None
                 started = run_networkmap(instance)
@@ -1325,7 +1523,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200 if ok else 404, {"ok": ok})
             elif path == "/api/battery/replaced":
                 date = str(body.get("date") or datetime.now(tracker.local_tz).date().isoformat())
-                entry = record_battery_replaced(ieee, date, "Zigbee Tracker", str(body.get("note") or ""))
+                brand = body.get("brand") if isinstance(body.get("brand"), str) else None
+                entry = record_battery_replaced(ieee, date, "Zigbee Tracker", str(body.get("note") or ""), brand)
                 self._json(
                     200 if entry else 400,
                     {"ok": bool(entry), "entry": entry, "error": None if entry else "Invalid device or date"},
@@ -1333,10 +1532,28 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/battery_stock":
                 result = tracker.set_battery_stock(str(body.get("type") or ""), body.get("count"), body.get("delta"))
                 self._json(200 if result["ok"] else 400, result)
+            elif path == "/api/battery_brands/add":
+                result = tracker.add_brand(body.get("brand"))
+                self._json(200 if result["ok"] else 400, result)
+            elif path == "/api/battery_brands/remove":
+                result = tracker.remove_brand(body.get("brand"))
+                self._json(200 if result["ok"] else 400, result)
+            elif path == "/api/battery/brand":
+                ok = tracker.set_battery_brand(ieee, body.get("index"), body.get("brand"))
+                self._json(200 if ok else 400, {"ok": ok, "error": None if ok else "Invalid device, entry or brand"})
             elif path == "/api/battery/remove":
                 ok = tracker.remove_battery_replacement(ieee, int(body.get("index", -1)))
                 threading.Thread(target=discovery.sync, daemon=True).start()
                 self._json(200 if ok else 404, {"ok": ok})
+            elif path == "/api/maintenance":
+                result = tracker.set_maintenance_task(ieee, body.get("task"))
+                self._json(200 if result["ok"] else (404 if result["error"] == "Unknown device" else 400), result)
+            elif path == "/api/maintenance/remove":
+                ok = tracker.remove_maintenance_task(ieee, str(body.get("id") or ""))
+                self._json(200 if ok else 404, {"ok": ok})
+            elif path == "/api/maintenance/done":
+                result = tracker.maintenance_done(ieee, str(body.get("id") or ""), body.get("date"))
+                self._json(200 if result["ok"] else 400, result)
             elif path == "/api/rename":
                 result = tracker.rename(ieee, str(body.get("name") or ""))
                 self._json(200 if result["ok"] else 400, result)
@@ -1444,18 +1661,24 @@ def main() -> None:
     ota_manager.start(stop_event)
     if home_assistant.available:
         threading.Thread(
-            target=home_assistant.watch, args=(ha_registry_changed, stop_event), name="ha-watch", daemon=True
+            target=home_assistant.watch,
+            args=(ha_registry_changed, stop_event, on_notification_action),
+            name="ha-watch",
+            daemon=True,
         ).start()
     if not tracker.data.get("imported"):
         threading.Thread(target=first_import, name="first-import", daemon=True).start()
 
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     server.daemon_threads = True
+    metrics_server = start_metrics_server()
 
     def shutdown(signum, frame):
         _LOGGER.info("Stopping, saving history")
         stop_event.set()
         threading.Thread(target=server.shutdown, daemon=True).start()
+        if metrics_server is not None:
+            threading.Thread(target=metrics_server.shutdown, daemon=True).start()
 
     signal.signal(signal.SIGTERM, shutdown)
     signal.signal(signal.SIGINT, shutdown)

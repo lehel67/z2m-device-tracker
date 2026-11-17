@@ -7,6 +7,9 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
+from incidents import POWER_MIN_DEVICES, POWER_WINDOW, is_battery, is_mains
+from odd_readings import issue as odd_reading_issue
+from payload_keys import SHOW_DAYS as PAYLOAD_SHOW_DAYS
 from reporting import audit as reporting_audit
 from reporting import findings as reporting_findings
 from reporting import summary_text as reporting_summary
@@ -44,6 +47,15 @@ ROUTER_BACK_GRACE = 300
 HOP_CHANGES = 3
 HOP_DAYS = 7
 DEFAULT_CRITICAL_OFFLINE_MINUTES = 5
+# Availability mismatch: "offline" while this many live messages arrived within MISMATCH_WINDOW, after
+# being offline for at least MISMATCH_SETTLE (Zigbee2MQTT itself flips a device back online within
+# seconds of a message, so a short overlap is just the change arriving).
+MISMATCH_MESSAGES = 3
+MISMATCH_WINDOW = 600
+MISMATCH_SETTLE = 300
+# "online" with no message for at least this long, and at least MISMATCH_GAPS of the device's usual gap.
+MISMATCH_QUIET = 6 * 3600
+MISMATCH_GAPS = 10
 
 # Everything the Settings page can switch: (key, label, description, is_event)
 CHECKS = [
@@ -57,13 +69,19 @@ CHECKS = [
     (
         "late",
         "Stopped reporting",
-        "No messages for longer than the device's own report interval, set on its Health tab.",
+        "No messages for longer than the device's reporting profile allows, chosen on its Health tab or by its type's default.",
         False,
     ),
     (
         "frozen",
         "Frozen reading",
         "Temperature, humidity, pressure or air quality hasn't changed while the device keeps reporting.",
+        False,
+    ),
+    (
+        "impossible_reading",
+        "Impossible readings",
+        "A temperature outside the limits set in Settings, humidity or battery outside 0-100%, or humidity stuck at 0 or 100% for longer than the set hours.",
         False,
     ),
     (
@@ -177,15 +195,57 @@ CHECKS = [
         False,
     ),
     (
+        "warranty_ending",
+        "Warranty ending",
+        "The warranty date in the device's asset details (Notes tab) is 30 days away or less.",
+        False,
+    ),
+    (
         "reporting_config",
         "Reporting settings",
         "A device's attribute reporting is set to drain its battery, flood the mesh, or never report a measurement.",
         False,
     ),
     (
+        "payload_changed",
+        "Sends different data",
+        "A device stopped sending a value it always sent (often after a firmware update), and an automation or script uses that value's entity.",
+        False,
+    ),
+    (
         "naming",
         "Naming",
         "A device still named by its IEEE address (0x…), or, when a naming pattern is set, a name that doesn't follow it.",
+        False,
+    ),
+    (
+        "firmware_note",
+        "Firmware you noted",
+        "A device runs a firmware version you wrote a firmware note about on the Updates tab.",
+        False,
+    ),
+    (
+        "stale_retained",
+        "Stale retained messages",
+        "Retained MQTT messages under an old device name, of a removed device, or Home Assistant discovery for a device no longer in Zigbee2MQTT.",
+        False,
+    ),
+    (
+        "retained_command",
+        "Retained command",
+        "A command (<name>/set) is retained on the broker, so the device repeats it every time the broker or Zigbee2MQTT restarts.",
+        False,
+    ),
+    (
+        "availability_mismatch",
+        "Availability disagreement",
+        "Zigbee2MQTT says the device is offline while it keeps sending messages (3 in 10 minutes), or online while it has sent nothing for far longer than usual. Usually a stale retained availability topic.",
+        False,
+    ),
+    (
+        "community_avoid",
+        "Rated poorly by others",
+        "Other Zigbee Tracker users rate the device's model Avoid in the community ratings (at least 5 reports).",
         False,
     ),
     ("joined", "Device joined", "A device joins one of your networks.", True),
@@ -211,6 +271,7 @@ KIND_LABELS = {
     "silent": "Not heard from",
     "late": "Stopped reporting",
     "frozen": "Frozen reading",
+    "impossible_reading": "Impossible reading",
     "weak_signal": "Weak signal",
     "signal_drop": "Signal dropping",
     "battery_low": "Low battery",
@@ -232,9 +293,16 @@ KIND_LABELS = {
     "signal_dip": "Daily signal dip",
     "group_member_offline": "Group members offline",
     "maintenance_due": "Maintenance overdue",
+    "warranty_ending": "Warranty ending",
     "upgrade_worse": "Worse since upgrade",
     "reporting_config": "Reporting settings",
     "naming": "Naming",
+    "firmware_note": "Firmware you noted",
+    "stale_retained": "Stale retained messages",
+    "retained_command": "Retained command",
+    "availability_mismatch": "Availability disagreement",
+    "payload_changed": "Sends different data",
+    "community_avoid": "Rated poorly by others",
 }
 
 
@@ -299,13 +367,14 @@ def _span(seconds: float) -> str:
     return f"{int(seconds // 86400)} days"
 
 
-def late_deadline(record: dict, started: float) -> float | None:
+def late_deadline(record: dict, started: float, every: Any = None) -> float | None:
     """When an active device with a report interval counts as late, or None if it has no interval.
 
-    The clock starts no earlier than the app's own start, so a restart doesn't flag
-    devices whose messages arrived while the app was down.
+    `every` is the device's silent limit from its reporting profile (reporting_profiles.effective);
+    without it, the device's own report_every. The clock starts no earlier than the app's own start,
+    so a restart doesn't flag devices whose messages arrived while the app was down.
     """
-    every = record.get("report_every")
+    every = record.get("report_every") if every is None else every
     if not every or record.get("status") != "active" or record.get("type") == "Coordinator":
         return None
     try:
@@ -507,7 +576,9 @@ def _z2m_active(record: dict, major: int) -> bool:
     return power == "Mains (single phase)"
 
 
-def offline_timing(record: dict, availability: dict | None, options: dict, now: float) -> dict | None:
+def offline_timing(
+    record: dict, availability: dict | None, options: dict, now: float, report_every: Any = None
+) -> dict | None:
     """When each alert fires for a device, counted from its last message.
 
     Steps are in seconds after the last message. Zigbee2MQTT marks a device offline after its own
@@ -556,11 +627,68 @@ def offline_timing(record: dict, availability: dict | None, options: dict, now: 
         steps.append({"kind": "offline", "at": z2m + delay, "off": "offline" in off})
     else:
         steps.append({"kind": "silent", "at": SILENT_SECONDS, "off": "silent" in off})
-    every = record.get("report_every")
+    every = record.get("report_every") if report_every is None else report_every
     if every:
         steps.append({"kind": "late", "at": int(every), "off": "late" in off})
     out["steps"] = sorted(steps, key=lambda s: s["at"])
     return out
+
+
+def availability_mismatch(record: dict, summary: dict, options: dict, now: float) -> dict | None:
+    """When the device's Zigbee2MQTT availability can't be right, given the messages it sends.
+
+    Offline, yet MISMATCH_MESSAGES live messages came within the last MISMATCH_WINDOW, all after it
+    went offline: the device is talking, so the availability topic is stale (typically a retained
+    "offline" left from when availability was on). Online, yet silent for far longer than its usual
+    gap, while Zigbee2MQTT either doesn't track its availability (so nothing updates the topic) or
+    should have marked it offline by now (a battery device past the passive timeout). Mains devices
+    Zigbee2MQTT pings are left alone: a ping keeps them online without any message.
+
+    Devices with their own report interval are left to the Stopped reporting check. Returns
+    {msg, params} or None.
+    """
+    if summary.get("network_down") or record.get("type") == "Coordinator" or record.get("status") != "active":
+        return None
+    state = record.get("availability")
+    name = record.get("friendly_name") or record.get("ieee")
+    topic = f"{record.get('instance')}/{name}/availability"
+    if state == "offline":
+        since = _age(record.get("availability_since"), now)
+        if since is None or since < MISMATCH_SETTLE:
+            return None
+        went = now - since
+        recent = [t for t in summary.get("recent_messages") or [] if t > went and now - t <= MISMATCH_WINDOW]
+        if len(recent) < MISMATCH_MESSAGES:
+            return None
+        return {
+            "msg": "availability_mismatch_offline",
+            "params": {"seconds": int(since), "n": len(recent), "ago": int(now - max(recent)), "topic": topic},
+        }
+    if state != "online" or record.get("report_every"):
+        return None
+    timing = offline_timing(record, summary.get("z2m_availability"), options, now)
+    if timing is None:
+        return None
+    quiet = _age(record.get("last_seen"), now)
+    # Messages that arrived while the app was down don't count against the device.
+    quiet = min(quiet, now - summary.get("started", 0.0)) if quiet is not None else None
+    if quiet is None:
+        return None
+    rate = summary.get("msg_rate_prev")
+    gap = 3600 / rate if _finite(rate) and rate > 0 else None
+    if timing["tracked"]:
+        if timing["mode"] == "active" or quiet < timing["z2m"] + 3600:
+            return None
+        why = "passive"
+    else:
+        why = "untracked"
+    need = max(MISMATCH_QUIET, MISMATCH_GAPS * gap) if gap else SILENT_SECONDS
+    if quiet < need:
+        return None
+    params: dict[str, Any] = {"seconds": int(quiet), "topic": topic}
+    if gap:
+        params["gap"] = int(gap)
+    return {"msg": f"availability_mismatch_{why}", "params": params}
 
 
 def mutes_of(record: dict) -> dict[str, str | None]:
@@ -620,7 +748,27 @@ def device_issues(
     if critical:
         # Critical devices use their own, usually shorter, delay.
         offline_minutes = max(0, int(options.get("critical_offline_minutes", DEFAULT_CRITICAL_OFFLINE_MINUTES)))
-    if record.get("availability") == "offline":
+    mismatch = None if "availability_mismatch" in muted else availability_mismatch(record, summary, options, now)
+    if mismatch:
+        p = mismatch["params"]
+        if mismatch["msg"] == "availability_mismatch_offline":
+            detail = (
+                f"Availability says offline for {_span(p['seconds'])}, but {p['n']} messages came in the last "
+                f"{_span(MISMATCH_WINDOW)}. Likely a stale retained {p['topic']}."
+            )
+        elif mismatch["msg"] == "availability_mismatch_untracked":
+            detail = (
+                f"Availability says online, but no message for {_span(p['seconds'])}. Zigbee2MQTT doesn't track "
+                f"this device's availability, so the online is likely a stale retained {p['topic']}."
+            )
+        else:
+            detail = (
+                f"Availability says online, but no message for {_span(p['seconds'])}, past Zigbee2MQTT's own "
+                f"timeout for battery devices. Likely a stale retained {p['topic']}."
+            )
+        add("availability_mismatch", INFO, "Availability and messages disagree", detail, mismatch["msg"], **p)
+    if record.get("availability") == "offline" and not (mismatch and mismatch["msg"].endswith("_offline")):
+        # A device that keeps sending messages isn't offline: the mismatch above says so instead.
         age = _age(record.get("availability_since"), now) or 0
         if age >= offline_minutes * 60:
             add("offline", WARNING, "Offline", f"Unavailable for {_span(age)}.", "offline", seconds=int(age))
@@ -629,9 +777,11 @@ def device_issues(
         if age is not None and age > 2 * 86400:
             add("silent", WARNING, "Not heard from", f"No messages for {_span(age)}.", "silent", seconds=int(age))
 
-    deadline = late_deadline(record, summary.get("started", 0.0))
+    # summary["report_every"] is the limit from the reporting profile; 0 means none.
+    limit = summary.get("report_every", record.get("report_every"))
+    deadline = late_deadline(record, summary.get("started", 0.0), limit or 0)
     if deadline is not None and now >= deadline and not summary.get("network_down"):
-        every = int(record["report_every"])
+        every = int(limit)
         age = _age(record.get("last_seen"), now)
         quiet = int(age) if age is not None else every
         add(
@@ -670,6 +820,10 @@ def device_issues(
                     n=reading["reports"],
                 )
                 break
+
+    odd = odd_reading_issue(record, options, now)
+    if odd:
+        add("impossible_reading", WARNING, odd["title"], odd["detail"], odd["msg"], **odd["params"])
 
     # Saved metrics from before input was checked can hold NaN or infinity: treat those as no data.
     lqi_24h = summary.get("lqi_24h") if _finite(summary.get("lqi_24h")) else None
@@ -864,6 +1018,21 @@ def device_issues(
             titles=shown,
             n=days,
         )
+    warranty = summary.get("warranty")
+    if warranty:
+        days = warranty["days"]
+        add(
+            "warranty_ending",
+            INFO,
+            "Warranty ending",
+            f"Warranty ends today ({warranty['until']}). Return or claim anything faulty now."
+            if days == 0
+            else f"Warranty ends in {days} day{'s' if days != 1 else ''} ({warranty['until']}). "
+            "Return or claim anything faulty before then.",
+            "warranty_ending_today" if days == 0 else "warranty_ending",
+            n=days,
+            date=warranty["until"],
+        )
     cmd = summary.get("cmd") or {}
     slow_cmd = cmd.get("slow")
     if slow_cmd and slow_cmd.get("rise"):
@@ -925,6 +1094,33 @@ def device_issues(
             rate=result["rate"],
         )
 
+    change = record.get("payload_change") or {}
+    used = summary.get("payload_usage") or []
+    change_age = _age(change.get("at"), now)
+    if used and change.get("removed") and change_age is not None and change_age < PAYLOAD_SHOW_DAYS * 86400:
+        gone = ", ".join(change["removed"])
+        new = ", ".join(change.get("added") or [])
+        users = [x["name"] for u in used for key in ("automations", "scripts") for x in u.get(key) or []]
+        users = list(dict.fromkeys(users))
+        names = ", ".join(users[:3]) + (f" (+{len(users) - 3} more)" if len(users) > 3 else "")
+        entities = ", ".join(u["entity_id"] for u in used)
+        firmware = change.get("firmware")
+        lead = f"Since firmware {firmware}: " if firmware else ""
+        what = f"{gone} gone" + (f", {new} new" if new else "")
+        add(
+            "payload_changed",
+            INFO,
+            "Sends different data",
+            f"{lead}{what}. Still used by {names} ({entities}), which may stop working.",
+            "payload_changed",
+            gone=gone,
+            new=new,
+            firmware=firmware,
+            entities=entities,
+            names=names,
+            n=len(users),
+        )
+
     for suggestion in suggestions:
         add(
             "replacement",
@@ -936,6 +1132,25 @@ def device_issues(
             ieee=suggestion["ieee"],
         )
         break
+
+    retained = summary.get("retained_commands") or []
+    if retained:
+        first = retained[0]
+        more = len(retained) - 1
+        add(
+            "retained_command",
+            WARNING,
+            "Retained command",
+            f"{first['topic']} holds {first['payload']}"
+            + (f" (and {more} more)" if more else "")
+            + ". The broker sends it again after every restart, so the device repeats it."
+            " Usually an automation or Node-RED flow that publishes with retain on.",
+            "retained_command",
+            topic=first["topic"],
+            payload=first["payload"],
+            n=len(retained),
+            topics=[r["topic"] for r in retained],
+        )
 
     return issues
 
@@ -1013,6 +1228,91 @@ def group_router_outages(issues: list[dict], devices: dict[str, dict], options: 
         issue["devices"] = [i["ieee"] for i in behind]
 
 
+def group_power_loss(issues: list[dict], devices: dict[str, dict], options: dict, now: float) -> None:
+    """Fold the offline issues of mains devices in one area that dropped together into one issue.
+
+    POWER_MIN_DEVICES or more mains devices in the same Home Assistant area, offline now, that went
+    offline within POWER_WINDOW seconds of each other while at least one battery device in that area is
+    still online: most likely the power there went off, not the mesh. Runs after group_router_outages,
+    so devices already folded into a router's issue (and the router issues themselves) are left out:
+    the router grouping wins. Counts from the moment the devices drop, before their offline delay
+    passes, like the router grouping. The device that dropped first leads: its issue gets
+    `power_area`, `power_devices` and the "Power loss in <area>?" text; the others get `behind` = it,
+    so they don't alert on their own and the sidebar nests them. Changes the issues in place.
+    """
+    if "offline" in set(options.get("disabled_checks") or []):
+        return
+    offline_issue = {i["ieee"]: i for i in issues if i["kind"] == "offline"}
+    by_area: dict[str, list[tuple[float, str]]] = {}
+    batteries_up: dict[str, int] = {}
+    for ieee, record in devices.items():
+        area = record.get("area")
+        if not area or record.get("status") != "active" or record.get("type") == "Coordinator":
+            continue
+        if record.get("availability") != "offline":
+            if is_battery(record) and record.get("availability") is not None:
+                batteries_up[area] = batteries_up.get(area, 0) + 1
+            continue
+        if not is_mains(record) or "offline" in active_mutes(record, now):
+            continue
+        issue = offline_issue.get(ieee)
+        if issue is not None and (issue.get("behind") or issue.get("devices")):
+            continue
+        age = _age(record.get("availability_since"), now)
+        if age is None:
+            continue
+        by_area.setdefault(area, []).append((now - age, ieee))
+    for area, drops in by_area.items():
+        if len(drops) < POWER_MIN_DEVICES or not batteries_up.get(area):
+            continue
+        drops.sort()
+        cluster: list[tuple[float, str]] = []
+        start = 0
+        for end in range(len(drops)):
+            while drops[end][0] - drops[start][0] > POWER_WINDOW:
+                start += 1
+            if end - start + 1 > len(cluster):
+                cluster = drops[start : end + 1]
+        if len(cluster) < POWER_MIN_DEVICES:
+            continue
+        lead = cluster[0][1]
+        others = [ieee for _ts, ieee in cluster[1:]]
+        for ieee in others:
+            if ieee in offline_issue:
+                offline_issue[ieee]["behind"] = lead
+        issue = offline_issue.get(lead)
+        if issue is None:
+            continue
+        names = sorted(
+            (_display(devices.get(ieee) or {}) or ieee for _ts, ieee in cluster),
+            key=str.lower,
+        )
+        n = len(cluster)
+        spread = round(cluster[-1][0] - cluster[0][0])
+        issue["title"] = "Power loss?"
+        issue["detail"] = (
+            f"{n} mains devices in {area} went offline within {spread} s of each other: {_names(names)}. "
+            "Battery devices there are still online, so the Zigbee mesh is fine. Check the power in that area first."
+        )
+        issue["msg"] = "power_loss"
+        issue["params"] = {
+            **(issue.get("params") or {}),
+            "area": area,
+            "n": n,
+            "spread": spread,
+            "names": names[:3],
+            "more": max(0, n - 3),
+        }
+        issue["power_area"] = area
+        issue["power_devices"] = others
+        issue["notify_title"] = f"{'Critical: ' if issue.get('critical') else ''}Power loss in {area}?"
+        issue["notify_message"] = issue["detail"]
+
+
+def _display(record: dict) -> str | None:
+    return record.get("friendly_name") or record.get("ha_name")
+
+
 def nested(issue: dict, keys: set[str]) -> bool:
     """True when the issue is shown inside its router's grouped offline issue rather than on its own."""
     return bool(issue.get("behind")) and f"offline:{issue['behind']}" in keys
@@ -1020,6 +1320,8 @@ def nested(issue: dict, keys: set[str]) -> bool:
 
 def alert_title(issue: dict) -> str:
     prefix = "Critical" if issue.get("critical") else "Zigbee"
+    if issue.get("power_area"):
+        return f"{'Critical: ' if issue.get('critical') else ''}Power loss in {issue['power_area']}?"
     if issue.get("devices"):
         return f"{'Critical: ' if issue.get('critical') else ''}Router offline: {issue['name']}"
     return f"{prefix}: {issue['name']} - {issue['label']}"

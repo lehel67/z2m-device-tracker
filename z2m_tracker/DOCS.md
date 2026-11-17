@@ -11,6 +11,7 @@ Open **Zigbee Tracker** in the sidebar. Most settings can be changed on its **Se
 | `alerts_enabled` | `true` | Master switch for alerts. |
 | `persistent_notifications` | `true` | Show alerts as Home Assistant notifications. |
 | `fire_events` | `true` | Fire `z2m_tracker_alert` events for automations. |
+| `ha_repairs` | `true` | With the integration installed, list problems in Home Assistant's **Settings → Repairs**. Set it in **Settings → Notifications**. See [Repairs](#repairs). |
 | `notify_service` | empty | Also send alerts to a notify service, e.g. `notify.mobile_app_phone`. Only `notify.` services are accepted; a bare name gets `notify.` added. |
 | `alert_actions` | `true` | Add buttons to alerts sent to `notify_service`, and open the device when the alert is tapped. See [Buttons on phone alerts](#buttons-on-phone-alerts). |
 | `alert_on_join` | `true` | Alert when a new device joins. |
@@ -21,6 +22,7 @@ Open **Zigbee Tracker** in the sidebar. Most settings can be changed on its **Se
 | `frozen_alert_hours` | `24` | How long a sensor reading must stay the same before it counts as frozen. A device can have its own value (Health tab, **Limits for this device**). |
 | `battery_alert_percent` | `15` | Battery level for a low battery alert. A device can have its own value (Health tab, **Limits for this device**). |
 | `networkmap_hour` | `3` | Hour of the nightly routing scan, or `-1` to turn it off. |
+| `networkmap_timeout_minutes` | `60` | How long to wait for Zigbee2MQTT to finish a routing scan (5 to 240). A scan of a network with 100 devices can take over 20 minutes. The scan counts as running until it answers or this limit passes, so no second scan starts and the nightly router ping waits for it. An answer that comes after the limit is still saved. |
 | `ha_entities` | `true` | Add tracker sensors to each Zigbee2MQTT device via MQTT discovery. |
 | `weekly_summary` | `true` | Send a weekly summary notification. |
 | `summary_day` / `summary_hour` | `0` / `9` | When to send it (0 = Monday). |
@@ -30,13 +32,45 @@ Open **Zigbee Tracker** in the sidebar. Most settings can be changed on its **Se
 | `ota_min_battery` | `30` | Battery devices below this level are skipped by automatic and bulk updates. **Update anyway** overrides it for one device. |
 | `quiet_hours` | `false` | Hold alerts during quiet hours and send one summary when they end. |
 | `quiet_start` / `quiet_end` | `23:00` / `07:00` | Quiet hours in the app's time zone, as `HH:MM`. The window can cross midnight. |
+| `escalate_enabled` | `false` | Send an alert again to a second notify service when nobody answers it in time. See [Escalation](#escalation). |
+| `escalate_hours` | `2` | How long an alert can go unanswered before it escalates (1 to 168 hours). |
+| `escalate_service` | empty | The second notify service, e.g. `notify.mobile_app_partner_phone`. Escalation needs one. |
+| `escalate_critical_only` | `true` | Only escalate alerts for devices marked **Critical device**. |
 | `naming_pattern` | empty | Naming pattern for devices, e.g. `{area} {type} {n}`. Fills in the name of each device that joins in **Pair device**, and drives the **Naming** check. Empty turns it off. See [Device names](#device-names). |
+| `battery_shop_url` | empty | Store search address for the cart buttons in **Batteries to buy**, with `{type}` where the battery type goes, e.g. `https://www.amazon.co.uk/s?k={type}` or `https://www.amazon.de/s?k={type}`. Any shop works. Empty hides the buttons. Set it in **Settings → Battery brands**. No affiliate tags are added. |
+| `retained_autoclear` | `false` | After a device is renamed, clear the retained messages the broker still keeps under its old name. Off lists them on **Network → Broker** for you to clear. See [Stale retained messages](#stale-retained-messages). |
+| `broker_stats` | `true` | Read Mosquitto's `$SYS/broker/#` statistics for **Network → Broker**. See [Broker statistics](#broker-statistics). |
+| `impossible_temp_min` / `impossible_temp_max` | `-30` / `60` | The believable temperature range in °C for the **Impossible readings** check. Set them in **Settings → Limits**. |
+| `humidity_stuck_hours` | `6` | How long humidity must stay at exactly 0 or 100% before the **Impossible readings** check flags it. |
 | `mqtt_host` | empty | Address of your MQTT broker, if it isn't the Mosquitto broker app. Empty uses the broker Home Assistant offers. See [MQTT broker](#mqtt-broker). |
 | `mqtt_port` | `1883` | Port of that broker. Usually `1883`, or `8883` with TLS. |
 | `mqtt_user` / `mqtt_password` | empty | Login for that broker. Leave empty if it allows anonymous connections. |
 | `mqtt_ssl` | `false` | Connect to that broker over TLS. |
 | `mqtt_ssl_verify` | `true` | Check the broker's TLS certificate. Turn off for a self-signed certificate. |
 | `metrics_token` | empty | Token for the Prometheus endpoint, 16 characters or more. Empty keeps the endpoint off. See [Prometheus metrics](#prometheus-metrics). |
+| `community_ratings_fetch` | `true` | Download the newest community device ratings from GitHub once a day. Off uses the copy that comes with the app, updated with each release. See [Community ratings](#community-ratings). |
+
+## Where things are
+
+The sidebar has seven tabs. On a phone the last three sit behind **More** in the bottom bar.
+
+| Tab | What it holds |
+| --- | --- |
+| **Health** | Problems, worst first, then one line for each part of the app on another tab, so a glance says whether anything there needs a look. |
+| **Devices** | Every device, with its own page: info, health, trends, history, battery, messages, community and notes. |
+| **Network** | **Map** (routing map, floor plan, what-if), **Coordinator** (each Zigbee2MQTT and its coordinator, and copies of its backup), **Broker** (MQTT broker statistics, stale retained messages and devices left behind in Home Assistant), **Radio** (channels and Wi-Fi overlap) and **Groups**. |
+| **Upkeep** | **Batteries** (what to buy, and how long each brand lasts), **Maintenance** (recurring tasks and warranties), **Models** (reliability by model and device age), **Costs** (running costs) and **Community** (community ratings, and your models nobody has rated yet). |
+| **Updates** | Firmware updates. |
+| **Activity** | The logbook and incidents. |
+| **Settings** | Alerts, checks, limits, naming and the rest. |
+
+With more than one Zigbee2MQTT, **Network** starts with a network picker. **All networks** shows a card for each network (devices, how many are online, open problems, channel and Zigbee2MQTT version) and warns when the same device name is used on two networks, because Home Assistant then gives the second device's entities IDs ending in `_2`. Picking one network shows its map, coordinator, broker leftovers, radio channel and groups on their own. The app remembers the choice in this browser.
+
+## Live messages
+
+A device's **Messages** tab shows the last 50 messages to and from it, newest first, and keeps updating while it's open: its state messages, availability changes, and commands sent to its `/set` topic with how long the device took to answer (or that it didn't answer within 10 seconds). Values that changed since the previous state message are highlighted, except link quality and `last_seen`, which change every time. The chips choose which kinds show, **Pause** stops the list moving, and **Copy** puts the shown messages on the clipboard.
+
+The messages are kept in memory only, for every device whether its tab is open or not, and nothing is saved: after a restart the lists start empty. Payloads longer than 2,000 characters are cut short.
 
 ## MQTT broker
 
@@ -45,6 +79,16 @@ By default the app uses the broker Home Assistant offers to apps, which is the M
 The app's Home Assistant entities use MQTT discovery, so they appear only if Home Assistant's MQTT integration is connected to the same broker.
 
 Without `mqtt_ssl`, the broker login and all Zigbee messages cross your network unencrypted. For a broker on another machine, turn on `mqtt_ssl` (usually port `8883`) and keep `mqtt_ssl_verify` on. Turn it off only for a self-signed certificate on a network you trust.
+
+## Broker statistics
+
+Mosquitto publishes statistics about itself under `$SYS/broker/` every 10 seconds (its `sys_interval` setting). With `broker_stats` on (the default; **Settings → Broker**), the app reads them and shows at the top of **Network → Broker**:
+
+- **Clients** connected, **Retained** messages held, messages **Dropped** in the last 24 hours, and broker **Uptime**.
+- **Messages per minute, last 24 h**: one bar per hour, worked out from Mosquitto's received-messages counter. Hours with dropped messages are red. The chart is kept in memory only, so it starts again when the app restarts.
+- A red line when messages were dropped, with the time of the latest drop. Mosquitto drops messages when a client's queue is full (`max_queued_messages`) or it runs short of memory; `$SYS` doesn't say which client.
+
+Health's **Broker** line shows the dropped messages too. Other brokers (EMQX, HiveMQ and others) don't publish Mosquitto's `$SYS` topics; after a minute without any the page says so. A broker whose access list doesn't let the app's login read `$SYS/#` looks the same.
 
 ## Prometheus metrics
 
@@ -67,15 +111,42 @@ scrape_configs:
 
 Every request must send the token, or it gets `401`. The endpoint serves only `/metrics` and changes nothing. The data includes device names and areas, so keep the token private.
 
-Each device has gauges for whether it is online, link quality (latest and 24-hour average), battery level and days left, when it was last seen, messages in the last 24 hours, uptime over 30 days and open issues. Each sample has `ieee`, `name` and `network` labels. `z2m_tracker_device_info` adds the type, power source, vendor, model and area. There are also network totals: devices per status, open issues per check, whether each Zigbee2MQTT is online, and whether alerts are paused.
+Each device has gauges for whether it is online, link quality (latest and 24-hour average), battery level and days left, when it was last seen, messages in the last 24 hours, uptime over 30 days and open issues. Each sample has `ieee`, `name` and `network` labels. `z2m_tracker_device_info` adds the type, power source, vendor, model and area. There are also network totals: devices per status, open issues per check, whether each Zigbee2MQTT is online, each network's mesh score (`z2m_tracker_network_mesh_score`), and whether alerts are paused.
+
+## Mesh score
+
+The top of **Health** shows one score from 0 to 100 for each network, worked out every few minutes from four parts:
+
+| Part | Weight | Full marks when |
+| --- | --- | --- |
+| Devices online | 40 | Every device on the network is online. Scored as the share that isn't offline. |
+| Average link quality | 20 | The 24-hour average link quality across the network's devices is 100 or more. Below that it scales down to 0. |
+| Devices with a backup route | 20 | No device depends on a single router. From the last routing scan: a router that loses its path to the coordinator when one other router goes, and the battery devices whose parent is such a router, count as without a backup route. |
+| Open problems | 20 | No open warnings on Health for that network. Each warning takes off a share, and all 20 are gone at 5 warnings or a fifth of the devices, whichever is more. Devices offline behind an offline router count once, with the router. |
+
+A part without data yet (no link quality, or no routing scan) is left out, and the others are scaled up to 100. The coordinator isn't counted.
+
+**Details** shows each part with its change since a week ago and the score over the last 30 days. The app keeps one value a day (the day's last) for 90 days in `history.json`.
+
+With `ha_entities` on, each network also gets a sensor through MQTT discovery, on a device named after the base topic, so the first network's is `sensor.zigbee2mqtt_mesh_score`. Its attributes hold the four parts and the score a week ago.
 
 ## Expected reporting
 
-Zigbee2MQTT decides when a device is offline: by default after 10 minutes for mains devices and 25 hours for battery devices. For a device that should report more often, set your own limit on its **Health** tab under **Expected reporting**, from 30 seconds to 7 days. If the device sends nothing for that long, the **Stopped reporting** check flags it, even while Zigbee2MQTT still shows it online. The tab shows how often the device usually reports; set the limit a little above that.
+Zigbee2MQTT decides when a device is offline: by default after 10 minutes for mains devices and 25 hours for battery devices. The **Stopped reporting** check is quicker: it flags a device that has sent nothing for longer than its **reporting profile** allows, even while Zigbee2MQTT still shows it online. Pick the profile on the device's **Health** tab, under **Expected reporting**:
 
-The check is off for every device until you set a limit, and it notifies by default. It is skipped while that device's Zigbee2MQTT is offline, so a network outage raises one alert, not one per device.
+| Profile | Silent after | For |
+| --- | --- | --- |
+| Reports on change | 3 h | Devices that send when something happens plus a regular check-in: door and window sensors, leak and smoke alarms, buttons. |
+| Regular | 1 h | Sensors that report every few minutes: temperature, humidity, air quality. |
+| Chatty | 15 min | Devices that report all the time, such as plugs measuring power. |
+| Custom | your own time, 30 seconds to 7 days | Anything else. Devices that had an interval set before profiles existed keep it as Custom. |
+| Off | never | |
 
-To set it for many devices at once, go to **Settings → Thresholds → Expected reporting** and select **Set for many devices…**. Pick mains devices, battery devices or both, and a multiplier (2×, 3×, 5× or 10×). Each device gets its usual gap between messages times the multiplier, rounded up to a tidy value such as 3 min, 30 min or 6 h. The usual gap comes from the last week's message counts, or the last 6 hours for a device with less history. Untick any device you want to leave alone, then select **Apply**. **Turn off** clears the setting on the ticked devices.
+A device without its own profile uses the **default for its type**, set in **Settings → Checks → Default reporting profile by device type**: door and window, leak, smoke, buttons and motion sensors report on change; temperature, humidity, air and light sensors are regular; plugs and bulbs are chatty; everything else is off. A default only starts once the device has shown it reports often enough for it: over the last week its usual gap between messages, times 3, must fit inside the profile's time. Until then the Health tab says the default is waiting. That keeps a bulb that only reports when switched, or a remote that only sends when pressed, from being flagged by a default nobody picked for it. Picking a profile on the device itself always applies.
+
+The tab shows how often the device usually reports. The check notifies by default. It is skipped while that device's Zigbee2MQTT is offline, so a network outage raises one alert, not one per device.
+
+To set a Custom time for many devices at once, go to **Settings → Thresholds → Expected reporting** and select **Set for many devices…**. Pick mains devices, battery devices or both, and a multiplier (2×, 3×, 5× or 10×). Each device gets its usual gap between messages times the multiplier, rounded up to a tidy value such as 3 min, 30 min or 6 h. The usual gap comes from the last week's message counts, or the last 6 hours for a device with less history. Untick any device you want to leave alone, then select **Apply**. **Turn off** sets the ticked devices to Off.
 
 Some devices are left unticked:
 
@@ -89,6 +160,12 @@ Some devices are left unticked:
 ## Pairing left open
 
 While pairing (permit join) is open, any nearby Zigbee device can join. The **Pairing left open** check warns and notifies when pairing stays open for 10 minutes, or straight away when something other than the Zigbee Tracker opened it (the Zigbee2MQTT frontend, Home Assistant or an automation). **Close now** on the Health tab closes it. Existing installs get this alert switched on once when they update; turn it off in Settings → Checks if you don't want it.
+
+## Settings advice
+
+When a Zigbee2MQTT instance has `advanced.last_seen` set to `disable` (read from the settings it publishes in `bridge/info`), Health shows a note under **Worth a look**. Without a `last_seen` time in each message, messages Zigbee2MQTT repeats from its cache look new to the app, so a battery device that has gone quiet can still look alive to the **Not heard from** and **Stopped reporting** checks.
+
+**Turn on** asks you to confirm, then sets `advanced.last_seen: ISO_8601` through Zigbee2MQTT's `bridge/request/options`. Zigbee2MQTT saves it in its `configuration.yaml`, and the change shows in the network's settings log. **Dismiss** hides the note for that network for good. The note never sends a notification.
 
 ## Device names
 
@@ -113,6 +190,7 @@ These checks show in Health but don't notify until you set them to **Show and no
 
 | Check | Flags |
 | --- | --- |
+| Impossible readings | A temperature outside `impossible_temp_min` to `impossible_temp_max` (−30 to 60 °C by default), humidity or battery outside 0–100%, at least once in the last 24 hours; or humidity stuck at exactly 0 or 100% for longer than `humidity_stuck_hours`. Shows the value, how many times in 24 hours, and the range of its other readings today and the day before. Often a failing battery or a bad contact. Battery values outside 0–100% are never stored and never count towards battery estimates. |
 | Flapping | A device that goes offline 4+ times or leaves the network twice in 24 hours, even when each drop is too short for the Offline alert. |
 | Chatty device | Message rate above `chatty_per_hour`, or 5 times its own usual rate (and at least 360 an hour). |
 | Battery draining fast | Battery fell at least 3 times faster over the last 14 days than its rate since the last battery change (needs about 5 weeks of history). |
@@ -126,12 +204,41 @@ These checks show in Health but don't notify until you set them to **Show and no
 | Zigbee2MQTT memory | Zigbee2MQTT's own memory use grew more than 50% over the last 7 days (at least 5 days of readings). Usually a leak that ends in a crash; a restart clears it. Uses the `bridge/health` messages Zigbee2MQTT 2.5+ sends every 10 minutes by default (its `health.interval` setting). Health → Coordinators also shows its memory over the last 14 days, MQTT traffic and leaves this week. |
 | Group members offline | A Zigbee2MQTT group with members that have been offline for longer than `offline_alert_minutes`. One issue per group, listing the offline members. |
 | Maintenance overdue | A maintenance task on the device is past its due date. See Maintenance tasks below. |
+| Warranty ending | The warranty date in the device's asset details is 30 days away or less. See Warranties below. |
 | Reporting settings | A device whose attribute reporting drains its battery, floods the mesh, or may never report a measurement. See Reporting settings below. |
 | Daily signal dip | Average link quality across a network drops at least 25% below that day's median in the same 1 to 4 hours on at least 4 of the last 7 days, and at least 30% of its devices dip then too. Usually something that switches on at that time: busy Wi-Fi on an overlapping channel, a microwave, or a USB 3 device near the coordinator. Health → Radio channels shows the hourly chart once a network has a week of link quality from at least 3 devices. |
 | Worse since an upgrade | After Zigbee2MQTT or the coordinator firmware changes, the week after the upgrade looks clearly worse than the week before, once at least 2 days of it have passed (shown for 30 days). Shows only; it doesn't notify unless you add it to `notify_checks`. See **Effect of an upgrade** below for what is compared and the thresholds. |
+| Stale retained messages | Retained MQTT messages that belong to no current device: topics under a device's old name, topics of removed devices, and Home Assistant discovery configs for devices no longer in Zigbee2MQTT. One low-priority line on Health that opens **Network → Broker**. See [Stale retained messages](#stale-retained-messages). |
+| Rated poorly by others | Other Zigbee Tracker users rate the device's model **Avoid** in the [community ratings](#community-ratings), from at least 5 reports. Low priority, and never notifies unless you add `community_avoid` to `notify_checks`. |
+| Retained command | A command for a current device (`<name>/set`, `<name>/set/<attribute>` or `<name>/<endpoint>/set`) that is retained on the broker. The broker sends it again every time it or Zigbee2MQTT restarts, so a light switches back on or a valve opens by itself. Usually an automation or Node-RED flow that publishes with retain on. Found when the app connects to the broker (retained messages are only marked as retained then). **Clear** publishes an empty retained message to the topic, which deletes it from the broker; nothing is sent to the device. **Ignore** mutes it for that device. |
+| Availability disagreement | Zigbee2MQTT's availability for a device contradicts its messages. **Offline** while 3 or more live messages arrived in the last 10 minutes, all after it went offline (and it has been offline for at least 5 minutes): the device is clearly talking, so the Offline check stays quiet for it and this shows instead. **Online** while it has sent nothing for at least 6 hours and 10 times its usual gap between messages (2 days without a week of history), when either Zigbee2MQTT doesn't track its availability or it's a battery device past Zigbee2MQTT's passive timeout plus an hour. Mains devices Zigbee2MQTT pings are not checked, since a ping keeps them online without a message, and devices with their own report interval are left to **Stopped reporting**. Usually a stale retained `<name>/availability` topic, for example one left from when availability was turned on. Live messages are only counted while the app is running. |
+| Sends different data | A device stopped sending a value it always sent, and an automation or script in Home Assistant uses that value's entity. See [Payload changes](#payload-changes). |
 | Naming | A device still named by its IEEE address (`0x…`), or, when `naming_pattern` is set, a name that doesn't follow it. Low priority. See [Device names](#device-names). |
+| Firmware you noted | A device runs a firmware version you wrote a firmware note about. Low priority. See [Firmware notes](#firmware-notes). |
 
-The Health tab's **Groups** card lists every Zigbee2MQTT group with how many of its members are online. Groups with offline members show each member, with the offline ones in red. A device that dropped out of a group but is still on the network (for example after it left and was re-paired) is flagged for 30 days, until it's back in the group, or until the group is deleted. Leaving a group is only noticed while the app is running.
+**Network → Groups** lists every Zigbee2MQTT group with how many of its members are online. Groups with offline members show each member, with the offline ones in red. A device that dropped out of a group but is still on the network (for example after it left and was re-paired) is flagged for 30 days, until it's back in the group, or until the group is deleted. Leaving a group is only noticed while the app is running.
+
+Each group also has a **History**: members added and removed (marked when the removed device was replaced), renames, and when the group was created. It starts when the app first sees the group; a group that already existed then has no "created" line. Zigbee2MQTT keeps its group list on the broker, so changes made while the app was stopped are picked up, dated when the app started again. The last 50 changes per group are kept in `history.json`, and the history of a deleted group is dropped 90 days after it was deleted.
+
+## Payload changes
+
+After a firmware update or a change in Zigbee2MQTT's converter for it, a device can start sending different data: a value is renamed, or one disappears. The app learns which values (keys) each device sends from its first 30 messages, then logs a change in the device's History tab, with the keys that are new and the keys that are gone, and the firmware version when the device was updated in the week before.
+
+- A key counts as gone when it was in at least 80% of the learning messages and then misses 20 messages in a row.
+- A key counts as new when it turns up in 5 messages within 50. Keys that only appear now and then are remembered and never reported, and `action`, `update`, `last_seen`, `linkquality` and the like are ignored.
+- Changes within a day of each other are one entry.
+
+The **Sends different data** check shows on Health for 30 days when a gone key's Home Assistant entity is still used by an automation or script. The app finds the entity from Zigbee2MQTT's discovery ids, so it needs the device to be in Home Assistant through MQTT discovery, and the app to have been running (or HA's registry to still hold the entity) when the key went.
+
+With Zigbee2MQTT's `cache_state` on (the default), Zigbee2MQTT keeps repeating the last cached value of a key the device no longer sends, and keeps it across restarts, so a gone key may only be noticed once that cached value is cleared. New keys are noticed either way.
+
+## Coordinator backup copies
+
+Zigbee2MQTT rewrites `coordinator_backup.json` in place, so a bad backup (a new network key after starting a fresh network, devices missing after an adapter swap) replaces the last good one. When the app can read the file (the Zigbee2MQTT data folder is inside the HA config folder) it keeps its own copies in its data folder, `coordinator_backups/`: a new copy each time the backup's devices, network key, PAN ID or channel change, and one a week when nothing changed. The last 10 copies per network are kept.
+
+**Network → Coordinator** lists them with the date of each backup, how many devices it holds, and what changed from the copy before it: devices added or removed (by name, or IEEE address for a device the app doesn't know), and whether the network key, PAN ID or channel changed. **Download** saves that copy as a `coordinator_backup.json` you can give Zigbee2MQTT to restore the network.
+
+The copies contain the network key, like the original file. The app never logs or shows the key: it only keeps a short hash of it to tell whether it changed, and a copy is sent only when you click Download. The copies are in the app's data folder, so they are part of Home Assistant backups of the app.
 
 ## Effect of an upgrade
 
@@ -165,6 +272,8 @@ Recommended values change only the part that's wrong and keep the rest. **Use re
 
 When a router goes offline, the devices that route through it often follow. The Offline check groups them: a device whose parent router in the last routing scan that saw it is offline (or that router's parent, and so on) shows under that router in Health, and the router gets one issue and one notification, e.g. "Router offline: Landing plug - 6 devices that route through it are offline too". The devices don't notify on their own while the router is down. When the router comes back, devices still offline 5 minutes later become normal issues and notify as usual. Devices that were never in a routing scan, and routers whose Offline check is ignored, aren't grouped. Repairs in Home Assistant follow the same grouping; each device's own entities still show it offline.
 
+A power cut looks different: several mains devices in one room drop at the same moment, while the battery devices there carry on. When 3 or more mains-powered devices in the same Home Assistant area go offline within 11 minutes of each other, and at least one battery device in that area is still online, the Offline check folds them into one issue and one notification, e.g. "Power loss in Garage? - 4 mains devices in Garage went offline within 6 s of each other". Router grouping comes first: devices already shown under an offline router aren't counted again. Devices without an area, and devices whose Offline check is ignored, aren't grouped. The 11 minutes cover Zigbee2MQTT's default availability timeout for mains devices (10 minutes): after a power cut it only notices each device is gone when that device next misses a ping, so the drops spread out. With a longer `availability.active.timeout` in Zigbee2MQTT, a power cut may show as separate Offline issues.
+
 The device panel's Info tab also shows message rates, Zigbee2MQTT's own counters (messages, leaves, address changes) and the device's bindings.
 
 ## Incidents
@@ -175,7 +284,7 @@ The Activity tab can show **Incidents** instead of **All events** (the choice is
 - A problem event starts an incident, or joins the open one on the same network if it comes within 10 minutes of that incident's last problem event. After 10 quiet minutes the incident takes no new problems, but its devices coming back are still added to it.
 - Only incidents with 3 or more devices, or with Zigbee2MQTT going offline or restarting, are shown. One device going offline on its own isn't an incident.
 - An incident is ongoing while one of its devices is still offline or Zigbee2MQTT is still down. A device that left and wasn't re-paired counts as not back but doesn't keep the incident ongoing.
-- Likely cause, first rule that fits: Zigbee2MQTT went offline or restarted: "Zigbee2MQTT or coordinator down". A router in the incident went down no later than devices that route through it (from the last routing scan) and at least one of them followed: "router X offline". 3 or more devices dropped within a minute of the start through 2 or more different parents: "network-wide drop (interference or coordinator)". Otherwise the cause is unknown.
+- Likely cause, first rule that fits: Zigbee2MQTT went offline or restarted: "Zigbee2MQTT or coordinator down". A router in the incident went down no later than devices that route through it (from the last routing scan) and at least one of them followed: "router X offline". 3 or more mains devices in one Home Assistant area went offline within 60 seconds of each other while a battery device in that area stayed online: "power loss in <area>" (the router rule still wins when the router and the devices behind it cover all of them); the row says whether they came back together, and an open one is also shown at the top of Health. 3 or more devices dropped within a minute of the start through 2 or more different parents: "network-wide drop (interference or coordinator)". Otherwise the cause is unknown.
 
 The last 50 incidents are kept, worked out from the activity log. No notifications are sent for incidents.
 
@@ -187,15 +296,29 @@ Every night, the hour after the routing scan (04:00 when `networkmap_hour` is `-
 
 Ping uses Zigbee2MQTT's `bridge/request/action` API, so it needs Zigbee2MQTT 2.7 or newer. The time includes the trip through MQTT and Zigbee2MQTT, a few milliseconds.
 
-The integration can mirror warnings and notify-enabled checks into **Settings → Repairs**. Turn it off in the integration's options. Repairs also stay empty while `alerts_enabled` is off.
+## Repairs
+
+The integration can mirror warnings and notify-enabled checks into **Settings → Repairs** in Home Assistant. Each one closes itself when the problem is fixed. Three serious problems get their own wording and always make the list, even when many other issues are open:
+
+| Problem | Repairs title | Severity |
+|---|---|---|
+| A device marked **Critical device** is offline | "Back door is offline (critical device)", with buttons to mute the check | Error |
+| A Zigbee2MQTT network is offline | "Zigbee2MQTT offline: Main network" | Error |
+| A coordinator backup is missing, old, unreadable or doesn't match the network | "Coordinator backup problem: Main network" | Warning |
+
+Turn Repairs off with **Show problems in HA Repairs** in the app's **Settings → Notifications** (`ha_repairs`), or in the integration's options; either one off keeps Repairs empty. Repairs also stay empty while `alerts_enabled` is off.
 
 ## Maintenance tasks
 
 Recurring physical jobs for a device, such as "Test smoke alarm" every month or "Check door sensor magnet" every year. Add them on the device panel's **Notes** tab: a title, how often (1 day to 10 years), when it was last done and an optional note. Smoke, leak, door/window, motion and radiator devices offer a few suggestions; any text works. A device can have up to 20 tasks.
 
-The next due date is the last done date plus the interval, or the day the task was added plus the interval if it was never done. **Mark done** sets today and adds a "maintenance done" entry to the device's logbook. The Health tab's **Maintenance** card lists overdue tasks and those due in the next 14 days. An overdue task is the **Maintenance overdue** check; it shows in Health but doesn't notify unless you turn that on in Settings → Checks.
+The next due date is the last done date plus the interval, or the day the task was added plus the interval if it was never done. **Mark done** sets today and adds a "maintenance done" entry to the device's logbook. **Upkeep → Maintenance** lists overdue tasks and those due in the next 14 days. An overdue task is the **Maintenance overdue** check; it shows in Health but doesn't notify unless you turn that on in Settings → Checks.
 
 With the integration, `todo.z2m_tracker_maintenance` lists the same tasks (ticking one marks it done) and `calendar.z2m_tracker_maintenance` shows each task's next due date and the day it was last done. Tasks are part of the device's history, so they are in backups.
+
+## Warranties
+
+Set **Warranty until** in a device's asset details on its **Notes** tab (next to the purchase date, shop and price). The Notes tab then says how long the warranty has left. **Upkeep → Maintenance** has a **Warranties** list: warranties ending in the next 60 days, soonest first, then those that ended in the last 90 days. **Details** opens the device's Notes tab. A warranty 30 days or less from its end is the **Warranty ending** check; it shows in Health but doesn't notify unless you turn that on in Settings → Checks.
 
 ## Pause alerts
 
@@ -209,6 +332,17 @@ Use **⋮ → Pause alerts** before planned work, such as a Zigbee2MQTT upgrade,
 
 The pause survives an app restart. The integration has the actions `z2m_tracker.pause_alerts` (optional `minutes`, empty pauses until resumed) and `z2m_tracker.resume_alerts`. Changing an alert setting during a pause marks the issues already found as sent, the same as it does outside a pause.
 
+## Running costs
+
+**Upkeep → Costs** adds up what the devices cost and what their batteries cost:
+
+- **Devices bought**: the total of the **Price** in each device's asset details (Notes tab). Prices are free text, so `£14.99`, `14,99 €` and `EUR 20` all work; the currency mark shown is the one most of your prices use. Removed devices count too.
+- **Batteries, last 12 months**: battery changes recorded in the last 365 days, times the number of batteries each device takes, times the price per battery type.
+- **Batteries, next 12 months (est.)**: for each active battery device, one change when its battery is predicted to run low (if that's within the year), then one per battery life after that. A device without a prediction counts one change per battery life. Battery life is the device's own average time between changes (its install date counts as the first), or the average for its model when it has none. Devices with neither are left out, and the page says how many.
+- A table per model and battery type: batteries per year and cost per year for each device.
+
+Set the price of one battery per type in **Settings → Battery brands → Battery prices**. Types without a price are counted but not costed. Battery prices are kept by the app (in its history and backups), not in the app configuration.
+
 ## Critical devices
 
 Turn on **Critical device** on a device's Info tab for devices that must never fail quietly: smoke and leak sensors, the freezer plug, the heating. A critical device:
@@ -219,6 +353,12 @@ Turn on **Critical device** on a device's Info tab for devices that must never f
 - alerts straight away during quiet hours.
 
 Alerts to `notify_service` for a critical device also carry the Companion app's high-priority data: `priority: high` and `ttl: 0` (Android, delivered straight away), and `push: interruption-level: time-sensitive` (iOS, shown through Focus modes).
+
+## Device labels
+
+Tick devices in the **Devices** list (the checkbox at the start of each row, the one in the header ticks every device shown, and Space ticks the focused row), then **Print labels** in the bar that appears. Each label has the device's name, IEEE address, battery type and count, the date the tracker first saw it, and a QR code that opens the device in this app (Home Assistant's `/app/<slug>/<ieee>` page, so it asks you to log in first). The QR code is made in the browser; nothing is sent anywhere.
+
+Two layouts: **Avery L7651** (65 labels of 38.1 × 21.2 mm on A4; **Start at label** skips labels already used on a sheet) and **29 mm tape**, one 62 × 29 mm label per page for label printers such as a Brother QL with 29 mm tape. Print at 100% scale ("Actual size"), not "Fit to page". Open the app from the Home Assistant sidebar before printing: anywhere else, the QR code can only link to the app's temporary ingress address.
 
 ## Buttons on phone alerts
 
@@ -234,15 +374,43 @@ The app hears the button through Home Assistant's `mobile_app_notification_actio
 
 If your notify service isn't the Companion app and rejects the extra data, turn `alert_actions` off.
 
+## Device age
+
+**Upkeep → Models → By device age** lists every active device, oldest first: its age, its firmware version and when the firmware last changed. Age counts from the purchase date in the device's asset details (Notes tab), or else the day the tracker first saw the device; the Notes tab shows it too. A firmware change is noticed while the app runs, when Zigbee2MQTT reports a new build for the device or an update finishes; changes from before this version, or while the app was stopped and the log has since rolled over, aren't known. A device at least 2 years old whose firmware hasn't changed for 2 years is marked **Not updated in 2+ years**. Select a row to open the device.
+
 ## Quiet hours
 
 With `quiet_hours` on, new issue alerts and Device joined, Device left and Interview failed alerts are held between `quiet_start` and `quiet_end` instead of being sent. Alerts for critical devices still go out straight away.
 
 When quiet hours end, one notification sums up the night, titled "Zigbee overnight: N issues, M resolved". It lists the issues that are still open, the ones that appeared and cleared during the night (with their times), and the held join, leave and interview alerts. Issues listed as still open count as alerted, so they aren't sent again one by one. If nothing happened, no summary is sent. Held alerts are kept in the app's data, so they survive a restart.
 
+## Escalation
+
+With `escalate_enabled` on and `escalate_service` set, an issue alert that nobody answers within `escalate_hours` is sent again to that second service, titled "Unanswered: ..." and ending "Nobody muted, pinged or fixed this in 2 h." Set it in **Settings → Notifications**.
+
+An alert counts as answered when the device is pinged (from the app or the **Ping** button on a phone alert), when any button on its phone alert is pressed, or when the problem goes away: fixed, muted or ignored. Each problem escalates once; if it clears and comes back, that is a new problem. With `escalate_critical_only` on (the default) only alerts for critical devices escalate. During quiet hours only critical devices escalate; the rest wait until quiet hours end. Nothing escalates while alerts are paused. Join, leave and interview alerts and the overnight summary never escalate. The `z2m_tracker_alert` event fires again with `escalated: true` and the `service` it went to.
+
+## Stale retained messages
+
+The MQTT broker keeps the last retained message on a topic until something deletes it. After a device is renamed or removed, its old topics can stay behind: `zigbee2mqtt/Hall Motion/availability` still saying offline while the renamed device is online, the state of a device removed months ago, or Home Assistant discovery configs that bring back ghost entities on every restart. **Network → Broker** lists them under **Stale retained messages**, with filters for **Old name**, **Removed device** and **HA discovery**.
+
+The app scans the broker with a second, short-lived MQTT connection: 30 seconds after it connects, 20 seconds after a device is renamed or removed, and every 6 hours. **Scan again** starts one by hand. A scan reads the retained messages under each tracked base topic and the discovery configs under `homeassistant/`, and keeps at most 20,000 topics with the first 160 characters of each payload, in memory only. A topic is listed when:
+
+- **Old name**: it sits under a name a device used to have, and no current device or group has that name now.
+- **Removed device**: it sits under a name or IEEE address of a device that is no longer in Zigbee2MQTT.
+- **HA discovery**: it is a discovery config (`homeassistant/<component>/<ieee>/…/config`) for an IEEE address that isn't an active device, and its payload points at a tracked base topic. Configs that point only at networks the app doesn't track are left alone.
+
+Topics of current devices and groups, `bridge/` topics, and names the app has never seen are never listed. MQTT doesn't record when a message was retained, so the age shown is when the device was renamed or removed.
+
+**Clear** publishes an empty retained message to the topic, which deletes it from the broker. Nothing is sent to the device. **Clear all** clears every message in the current filter. Both ask first, and the app checks each topic against the latest scan before clearing it. Turn on `retained_autoclear` (**Settings → Broker**) to clear a device's old-name topics automatically after each scan. When any stale messages exist, Health shows **Stale retained messages** under **Worth a look**.
+
+## Compare two devices
+
+Tick exactly two devices in the **Devices** list (the checkbox at the start of each row; Space ticks the focused row), then **Compare** in the bar that appears. The dialog puts them side by side: model and firmware, average link quality over 7 days, parent router with its hop count from the last routing scan, how long the last battery pack lasted (between the last two recorded battery dates), uptime over 30 days and messages per hour over the last 24 hours. The worse value is in red where the gap matters: 10 or more link quality, a longer route, a battery pack lasting at least 25% less, or half a point of uptime. Select a device's name to open it.
+
 ## Leftover devices in Home Assistant
 
-A device removed from Zigbee2MQTT can stay in Home Assistant with all its entities unavailable, for example when Zigbee2MQTT was stopped or its Home Assistant integration was off at the time. Health lists these under **Leftover in Home Assistant**.
+A device removed from Zigbee2MQTT can stay in Home Assistant with all its entities unavailable, for example when Zigbee2MQTT was stopped or its Home Assistant integration was off at the time. **Network → Broker** lists these under **Leftover in Home Assistant**, and Health links to it.
 
 A Home Assistant device is listed when all of these are true:
 
@@ -264,6 +432,28 @@ The **Updates** tab lists every device with a firmware update from Zigbee2MQTT, 
 - **Update now** and **Update all** add devices to a queue. The queue installs one device at a time.
 - With `ota_window` set, updates still waiting are installed inside that window each night, one at a time. A device that fails is tried once more the next night. If that fails too, it stays failed until you press **Retry**. Retry starts the count again.
 - Each update is recorded under **Recent updates** (last 200) and in the device's logbook in Home Assistant.
+
+### Firmware notes
+
+**Firmware notes** on the Updates tab are your own notes against a device model and firmware version, e.g. "Drops off the mesh every few days. Stay on 2.1.3." Add, edit and delete them there; the app keeps them in its data (up to 200).
+
+- A device of that model whose firmware build (Zigbee2MQTT's `software_build_id`) or installed OTA file version is the noted version shows the note on its page, and gets a **Firmware you noted** row in Health under **Worth a look**.
+- An update on offer to the noted version is marked "You noted problems with ..." and left out of **Update all** and the overnight `ota_window` run. **Update anyway** on that row installs it. Zigbee2MQTT only knows the OTA file version of an update before it's installed, so a note on a build such as `2.1.4` matches an offered update once a device of the same model runs `2.1.4` and reports its file version; a note on the file version itself matches straight away.
+- The models come from Zigbee2MQTT's device definitions, so a note covers every device of that model on every network.
+
+## Community ratings
+
+What other Zigbee Tracker users think of each device model, in the spirit of the Battery Notes device library. A device's **Community** tab shows its model's verdict (**Recommended**, **Mixed** or **Avoid**, once at least 5 people have rated it), how many people rated it, the measured numbers they shared (median uptime, drop-outs a month, link quality and battery life) next to your own, the most common tags, the firmware version people rate best, and a few recent comments. **Upkeep → Community** lists every model on your networks first, then every other rated model, with a search box: useful before buying a device.
+
+**Share your experience** on the Community tab rates a model:
+
+1. Pick **Recommend**, **It's OK** or **Avoid**, any tags that fit, and an optional comment.
+2. Turn on **Attach my stats** to add the numbers the tracker measured for that model (uptime over 30 days, drop-outs a month, median link quality, battery life between changes). They make the ratings much more useful.
+3. The dialog shows exactly what will be posted. **Continue on GitHub** opens a pre-filled GitHub issue in a new tab. You need a GitHub account, and nothing is posted until you press **Create** there.
+
+A report holds the vendor, model, firmware version, Zigbee2MQTT version, adapter type, how many of the model you have and for how many months, your verdict, tags and comment, the stats if you chose to share them, and a reporter code. It never holds device names, areas, IEEE addresses or anything about your Home Assistant. The reporter code is a hash of a random ID kept in the app's data folder and the model, so a newer report from you replaces your older one for the same model; it can't be linked back to you or across models. Reports are public GitHub issues released under CC0.
+
+A bot checks each report and closes the issue. Once a week the reports are rebuilt into `community_ratings.json` (newest report per person per model), which ships with the app and, unless `community_ratings_fetch` is off, is downloaded from GitHub once a day.
 
 ## Security
 

@@ -32,6 +32,7 @@ DEVICE_CHECKS = [
     "silent",
     "late",
     "frozen",
+    "impossible_reading",
     "battery_low",
     "battery_soon",
     "battery_drain",
@@ -47,10 +48,16 @@ DEVICE_CHECKS = [
     "router_hopping",
     "slow_router",
     "maintenance_due",
+    "warranty_ending",
     "slow_commands",
     "missed_commands",
     "reporting_config",
     "naming",
+    "firmware_note",
+    "retained_command",
+    "availability_mismatch",
+    "payload_changed",
+    "community_avoid",
 ]
 
 DEVICE_FIELDS = {

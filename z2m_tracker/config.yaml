@@ -1,5 +1,5 @@
 name: Z2M Device Tracker
-version: "1.5.2"
+version: "2.0.0"
 slug: z2m_tracker
 description: History, health monitoring and alerts for every Zigbee2MQTT device - names, renames, signal, battery, routing and removals.
 url: https://github.com/tempus2016/z2m-device-tracker
@@ -29,6 +29,7 @@ options:
   alerts_enabled: true
   persistent_notifications: true
   fire_events: true
+  ha_repairs: true
   notify_service: ""
   alert_actions: true
   alert_on_join: true
@@ -51,6 +52,7 @@ options:
   frozen_alert_hours: 24
   battery_alert_percent: 15
   networkmap_hour: 3
+  networkmap_timeout_minutes: 60
   ha_entities: true
   weekly_summary: true
   summary_day: 0
@@ -62,7 +64,17 @@ options:
   quiet_hours: false
   quiet_start: "23:00"
   quiet_end: "07:00"
+  escalate_enabled: false
+  escalate_hours: 2
+  escalate_service: ""
+  escalate_critical_only: true
   naming_pattern: ""
+  battery_shop_url: ""
+  retained_autoclear: false
+  broker_stats: true
+  impossible_temp_min: -30
+  impossible_temp_max: 60
+  humidity_stuck_hours: 6
   mqtt_host: ""
   mqtt_port: 1883
   mqtt_user: ""
@@ -70,6 +82,7 @@ options:
   mqtt_ssl: false
   mqtt_ssl_verify: true
   metrics_token: ""
+  community_ratings_fetch: true
 schema:
   base_topics:
     - str
@@ -78,6 +91,7 @@ schema:
   alerts_enabled: bool
   persistent_notifications: bool
   fire_events: bool
+  ha_repairs: bool?
   notify_service: str?
   alert_actions: bool?
   alert_on_join: bool
@@ -90,6 +104,7 @@ schema:
   frozen_alert_hours: int(0,720)
   battery_alert_percent: int(0,100)
   networkmap_hour: int(-1,23)
+  networkmap_timeout_minutes: int(5,240)?
   ha_entities: bool
   weekly_summary: bool
   summary_day: int(0,6)
@@ -101,7 +116,17 @@ schema:
   quiet_hours: bool?
   quiet_start: match(^([01]\d|2[0-3]):[0-5]\d$)?
   quiet_end: match(^([01]\d|2[0-3]):[0-5]\d$)?
+  escalate_enabled: bool?
+  escalate_hours: int(1,168)?
+  escalate_service: str?
+  escalate_critical_only: bool?
   naming_pattern: str?
+  battery_shop_url: str?
+  retained_autoclear: bool?
+  broker_stats: bool?
+  impossible_temp_min: int(-100,100)?
+  impossible_temp_max: int(-100,100)?
+  humidity_stuck_hours: int(1,168)?
   mqtt_host: str?
   mqtt_port: port?
   mqtt_user: str?
@@ -109,3 +134,4 @@ schema:
   mqtt_ssl: bool?
   mqtt_ssl_verify: bool?
   metrics_token: password?
+  community_ratings_fetch: bool?

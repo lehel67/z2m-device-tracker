@@ -25,11 +25,16 @@ from urllib.parse import unquote, unquote_plus
 from zoneinfo import ZoneInfo
 
 import alert_actions
+import escalation
 import paho.mqtt.client as mqtt
 import prometheus
-from battery_library import BatteryLibrary
+from battery_library import BatteryLibrary, clean_shop_url
+from broker_stats import FILTER as SYS_FILTER
+from broker_stats import BrokerStats
+from community import CommunityRatings
 from discovery import AVAILABILITY, Discovery
 from discovery import BASE as DISCOVERY_BASE
+from discovery import PREFIX as DISCOVERY_PREFIX
 from ha import HomeAssistant
 from health import CHECKS, DEFAULT_NOTIFY, alert_title, mutes_of, nested, notify_kinds, offer_new_kinds
 from metrics import Metrics
@@ -37,6 +42,8 @@ from mqtt_status import NOTIFICATION_ID, NOTIFICATION_TITLE, MqttStatus, explain
 from naming import clean_pattern
 from ota import OtaManager, parse_window
 from reporting import clean_fix as clean_reporting_fix
+from retained import OLD_NAME, RetainedStore
+from retained import collect as collect_retained
 from tracker import IEEE_RE, Tracker, base_topic_list, shopping_text
 from tracker import _display_name as tracker_display_name
 from usage import UsageRefresher
@@ -44,7 +51,7 @@ from usage import UsageRefresher
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", stream=sys.stdout)
 _LOGGER = logging.getLogger("z2m_tracker")
 
-VERSION = "1.5.1"
+VERSION = "2.0.0"
 PORT = 8099
 # Prometheus scrape port: only opened when metrics_token is set.
 METRICS_PORT = 9099
@@ -54,6 +61,8 @@ METRICS_PATH = "/data/metrics.json"
 SCANS_PATH = "/data/scans.json"
 OPTIONS_PATH = "/data/options.json"
 TOKEN_PATH = "/data/api_token"
+COMMUNITY_PATH = "/data/community_ratings.json"
+COMMUNITY_ID_PATH = "/data/community_id"
 CONFIG_DIR = "/homeassistant"
 MIGRATE_FROM = f"{CONFIG_DIR}/.storage/z2m_tracker"
 APP_DIR = Path(__file__).parent
@@ -92,12 +101,14 @@ DEFAULT_OPTIONS = {
     "frozen_alert_hours": 24,
     "battery_alert_percent": 15,
     "networkmap_hour": 3,
+    "networkmap_timeout_minutes": 60,
     "ha_entities": True,
     "weekly_summary": True,
     "summary_day": 0,
     "summary_hour": 9,
     "alerts_enabled": True,
     "fire_events": True,
+    "ha_repairs": True,
     "disabled_checks": [],
     "notify_checks": list(DEFAULT_NOTIFY),
     "wifi_channels": "",
@@ -107,7 +118,18 @@ DEFAULT_OPTIONS = {
     "quiet_hours": False,
     "quiet_start": "23:00",
     "quiet_end": "07:00",
+    "escalate_enabled": False,
+    "escalate_hours": 2,
+    "escalate_service": "",
+    "escalate_critical_only": True,
     "naming_pattern": "",
+    "battery_shop_url": "",
+    "retained_autoclear": False,
+    "broker_stats": True,
+    "impossible_temp_min": -30,
+    "impossible_temp_max": 60,
+    "humidity_stuck_hours": 6,
+    "community_ratings_fetch": True,
 }
 
 CHECK_KEYS = {key for key, _, _, _ in CHECKS}
@@ -178,12 +200,14 @@ SETTINGS = {
     "alerts_enabled": _bool,
     "persistent_notifications": _bool,
     "fire_events": _bool,
+    "ha_repairs": _bool,
     "notify_service": _service,
     "offline_alert_minutes": _int(0, 10080),
     "critical_offline_minutes": _int(0, 1440),
     "frozen_alert_hours": _int(0, 720),
     "battery_alert_percent": _int(0, 100),
     "networkmap_hour": _int(-1, 23),
+    "networkmap_timeout_minutes": _int(5, 240),
     "ha_entities": _bool,
     "weekly_summary": _bool,
     "summary_day": _int(0, 6),
@@ -197,7 +221,18 @@ SETTINGS = {
     "quiet_hours": _bool,
     "quiet_start": _clock,
     "quiet_end": _clock,
+    "escalate_enabled": _bool,
+    "escalate_hours": _int(1, 168),
+    "escalate_service": _service,
+    "escalate_critical_only": _bool,
     "naming_pattern": clean_pattern,
+    "battery_shop_url": clean_shop_url,
+    "retained_autoclear": _bool,
+    "broker_stats": _bool,
+    "impossible_temp_min": _int(-100, 100),
+    "impossible_temp_max": _int(-100, 100),
+    "humidity_stuck_hours": _int(1, 168),
+    "community_ratings_fetch": _bool,
 }
 
 
@@ -225,6 +260,11 @@ def load_options() -> dict:
     except ValueError as err:
         _LOGGER.warning("Ignoring naming_pattern %r: %s", options.get("naming_pattern"), err)
         options["naming_pattern"] = ""
+    try:
+        options["battery_shop_url"] = clean_shop_url(options.get("battery_shop_url"))
+    except ValueError as err:
+        _LOGGER.warning("Ignoring battery_shop_url %r: %s", options.get("battery_shop_url"), err)
+        options["battery_shop_url"] = ""
     if not options.get("alert_on_join", True) and "joined" in options["notify_checks"]:
         options["notify_checks"] = [k for k in options["notify_checks"] if k != "joined"]
     return options
@@ -298,7 +338,13 @@ for _topic in base_topics:
 metrics = Metrics(METRICS_PATH)
 tracker = Tracker(DATA_PATH, base_topics, CONFIG_DIR, local_timezone(), metrics, options, load_oui())
 home_assistant = HomeAssistant(CONFIG_DIR)
+retained_store = RetainedStore()
+tracker.retained = retained_store
+broker_stats = BrokerStats()
+tracker.broker_stats = broker_stats
 tracker.battery_lib = BatteryLibrary(APP_DIR / "battery_library.json")
+community = CommunityRatings(APP_DIR / "community_ratings.json", Path(COMMUNITY_PATH), Path(COMMUNITY_ID_PATH))
+tracker.community = community
 discovery = Discovery(tracker, VERSION, bool(options.get("ha_entities", True)))
 stop_event = threading.Event()
 ha_changed_at = 0.0
@@ -517,6 +563,55 @@ class Alerts:
         if plan["digest"]:
             title, message = plan["digest"]
             self._send("digest", "digest", "", "Zigbee Tracker", title, message, None)
+        self.escalate(issues, plan["send"])
+
+    def escalate(self, issues: list[dict], sent: list[dict]) -> None:
+        """Record the alerts just sent, and send unanswered ones again to the second service (escalation.py)."""
+        conf = escalation.settings(options)
+        now = time.time()
+        enabled = self.notify_set()
+        current = {issue["key"]: issue for issue in issues if issue["kind"] in enabled}
+        with tracker.lock:
+            store = escalation.clean(tracker.data.get("escalation"))
+            before = len(store)
+            if conf is None:
+                # Off: nothing waits, so turning it on later doesn't escalate old alerts at once.
+                store.clear()
+                due = []
+            else:
+                escalation.track(store, sent, now, conf["critical_only"])
+                due = escalation.due(store, current, now, conf["seconds"], tracker.in_quiet_hours(now))
+            if due or store or before:
+                tracker.data["escalation"] = store
+                tracker.dirty = True
+        for issue, waited in due:
+            title, message = escalation.message(issue, alert_title(issue), waited)
+            self._escalate(conf["service"], issue, title, message)
+
+    def _escalate(self, service: str, issue: dict, title: str, message: str) -> None:
+        key, kind, ieee = issue["key"], issue["kind"], issue.get("ieee") or ""
+        push = dict(CRITICAL_PUSH) if issue.get("critical") else {}
+        if options.get("alert_actions", True):
+            push.update(self.phone_extras(key, kind, ieee))
+        push["tag"] = "z2m_tracker_escalated_" + re.sub(r"[^A-Za-z0-9_]", "_", key)[:110]
+        _LOGGER.info("Escalated to %s: %s - %s", service, title, message)
+        data = {"key": key, "kind": kind, "ieee": ieee, "name": issue.get("name"), "title": title}
+        data.update(message=message, network=issue.get("instance"), escalated=True, service=service)
+
+        def job() -> None:
+            if options.get("fire_events", True):
+                home_assistant.fire_event("z2m_tracker_alert", data)
+            home_assistant.notify(service, title, message, push)
+
+        self.queue.put(job)
+
+
+def acknowledge_alerts(ieee: str) -> None:
+    """Someone answered the device's alert (pinged it, or pressed a button on a phone alert): no escalation."""
+    with tracker.lock:
+        store = tracker.data.get("escalation")
+        if isinstance(store, dict) and escalation.acknowledge(store, ieee):
+            tracker.dirty = True
 
 
 alerts = Alerts()
@@ -539,6 +634,7 @@ def on_notification_action(data: dict) -> None:
 
 
 def run_notification_action(verb: str, ieee: str, kind: str) -> None:
+    acknowledge_alerts(ieee)
     with tracker.lock:
         record = tracker.data["devices"].get(ieee)
         name = (tracker_display_name(record) if record else None) or ieee
@@ -589,8 +685,12 @@ def on_connect(client, userdata, flags, reason_code, properties):
         [(f"{topic}/#", 0) for topic in base_topics]
         + [(f"{DISCOVERY_BASE}/+/reconfigure", 0), (f"{DISCOVERY_BASE}/+/battery_replaced", 0)]
     )
+    if options.get("broker_stats", True):
+        client.subscribe(SYS_FILTER, 0)
+        broker_stats.subscribed()
     client.publish(AVAILABILITY, "online", qos=1, retain=True)
     threading.Thread(target=discovery.sync, kwargs={"force": True}, name="discovery", daemon=True).start()
+    retained_scan_soon(RETAINED_FIRST_DELAY)
 
 
 def on_disconnect(client, userdata, flags, reason_code, properties):
@@ -673,6 +773,9 @@ def on_message(client, userdata, message):
     # Never let an exception out: paho would stop its network thread, and with it all tracking.
     try:
         topic = message.topic
+        if topic.startswith("$SYS/"):
+            broker_stats.handle(topic, message.payload)
+            return
         if topic.startswith(f"{DISCOVERY_BASE}/"):
             parts = topic.split("/")
             if len(parts) == 3 and parts[2] in ("battery_replaced", "reconfigure"):
@@ -691,8 +794,9 @@ def _internal_broker(host: str) -> bool:
     return "." not in host or host.endswith(".local.hass.io") or host.startswith("172.30.")
 
 
-def start_mqtt() -> mqtt.Client:
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"z2m-tracker-{tracker.boot_id}")
+def new_client(client_id: str) -> mqtt.Client:
+    """An MQTT client with the broker login and TLS settings, not yet connected."""
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id)
     user = os.environ.get("MQTT_USER")
     if user:
         client.username_pw_set(user, os.environ.get("MQTT_PASS") or None)
@@ -710,6 +814,16 @@ def start_mqtt() -> mqtt.Client:
             client.tls_set(cert_reqs=ssl.CERT_NONE)
             client.tls_insecure_set(True)
     client.suppress_exceptions = True
+    return client
+
+
+# The tracker's MQTT client, once started.
+mqtt_client: mqtt.Client | None = None
+
+
+def start_mqtt() -> mqtt.Client:
+    global publish_retained, mqtt_client
+    client = new_client(f"z2m-tracker-{tracker.boot_id}")
     client.on_connect = on_connect
     client.on_disconnect = on_disconnect
     client.on_connect_fail = on_connect_fail
@@ -722,10 +836,168 @@ def start_mqtt() -> mqtt.Client:
     client.connect_async(MQTT_HOST, MQTT_PORT, keepalive=60)
     client.loop_start()
     tracker.publish = lambda topic, payload: client.publish(topic, json.dumps(payload), qos=0)
+
+    def clear_topic(topic: str) -> bool:
+        return client.publish(topic, b"", qos=1, retain=True).rc == mqtt.MQTT_ERR_SUCCESS
+
+    publish_retained = clear_topic
+    mqtt_client = client
     return client
 
 
+# ------------------------------------------------------- retained messages
+
+# First scan after connecting: long enough for every network's device list to arrive.
+RETAINED_FIRST_DELAY = 30
+# After a rename or removal: a short wait, so a burst of renames costs one scan.
+RETAINED_CHANGE_DELAY = 20
+RETAINED_RESCAN = 6 * 3600
+# A scan ends once no retained message has arrived for this long, or after RETAINED_MAX_WAIT.
+RETAINED_SETTLE = 2.0
+RETAINED_MAX_WAIT = 30.0
+retained_lock = threading.Lock()
+retained_next = 0.0
+# Publishes an empty retained message (deletes the topic on the broker). Set by start_mqtt.
+publish_retained = None
+
+
+def retained_scan_soon(delay: float = 0) -> None:
+    global retained_next
+    due = time.time() + delay
+    if not retained_next or due < retained_next:
+        retained_next = due
+
+
+def scan_retained() -> bool:
+    """Start a scan of the broker's retained messages on its own thread. False if one is running."""
+    if not retained_lock.acquire(blocking=False):
+        return False
+    retained_store.running = True
+
+    def job() -> None:
+        try:
+            _scan_retained()
+        except Exception:  # noqa: BLE001 - scans are best effort
+            _LOGGER.exception("Scanning retained messages failed")
+            retained_store.failed("The scan failed, see the app log")
+        finally:
+            retained_store.running = False
+            with tracker.lock:
+                tracker.revision += 1
+            retained_lock.release()
+
+    threading.Thread(target=job, name="retained-scan", daemon=True).start()
+    return True
+
+
+def _scan_retained() -> None:
+    """Connect a second, short-lived client and collect what the broker sends as retained.
+
+    The broker replays every retained message on a fresh subscription. Doing it on a separate
+    connection leaves the tracker's own subscription alone, so old states aren't read again as
+    new messages. Live traffic arrives without the retain flag and is ignored."""
+    found: dict[str, dict] = {}
+    seen = {"last": 0.0, "subscribed": False, "full": False, "error": None}
+    client = new_client(f"z2m-tracker-scan-{tracker.boot_id}")
+    filters = [(f"{topic}/#", 0) for topic in base_topics] + [
+        (f"{DISCOVERY_PREFIX}/+/+/config", 0),
+        (f"{DISCOVERY_PREFIX}/+/+/+/config", 0),
+    ]
+
+    def connected(c, userdata, flags, reason_code, properties):
+        if reason_code.is_failure:
+            seen["error"] = explain_refusal(str(reason_code), manual=MQTT_MANUAL)
+            return
+        c.subscribe(filters)
+
+    def subscribed(c, userdata, mid, reason_codes, properties):
+        seen["subscribed"] = True
+        seen["last"] = time.monotonic()
+
+    def message(c, userdata, msg):
+        if not msg.retain:
+            return
+        seen["last"] = time.monotonic()
+        if not seen["full"] and not collect_retained(found, msg.topic, msg.payload, base_topics, DISCOVERY_PREFIX):
+            seen["full"] = True
+
+    client.on_connect = connected
+    client.on_subscribe = subscribed
+    client.on_message = message
+    client.connect_async(MQTT_HOST, MQTT_PORT, keepalive=30)
+    client.loop_start()
+    start = time.monotonic()
+    try:
+        while time.monotonic() - start < RETAINED_MAX_WAIT and not stop_event.is_set():
+            if seen["error"] or (seen["subscribed"] and time.monotonic() - seen["last"] >= RETAINED_SETTLE):
+                break
+            time.sleep(0.25)
+    finally:
+        client.disconnect()
+        client.loop_stop()
+    if not seen["subscribed"]:
+        retained_store.failed(seen["error"] or "Couldn't reach the MQTT broker")
+        _LOGGER.warning("Retained message scan: %s", seen["error"] or "couldn't reach the broker")
+        return
+    retained_store.replace(dict(found), seen["full"])
+    stale = tracker.stale_retained() or []
+    _LOGGER.info("Retained message scan: %d topics, %d stale", len(found), len(stale))
+    if options.get("retained_autoclear"):
+        old = [e["topic"] for e in stale if e["reason"] == OLD_NAME]
+        if old:
+            result = clear_retained(old)
+            _LOGGER.info("Cleared %d retained topics under old device names", len(result["cleared"]))
+
+
+def clear_retained(topics: list[str]) -> dict:
+    """Delete stale retained topics from the broker by publishing an empty retained message.
+
+    Only topics the last scan lists as stale right now are touched; anything else (a current
+    device, a bridge topic, a topic the app never saw) is refused."""
+    stale = tracker.stale_retained()
+    if stale is None:
+        return {"ok": False, "error": "The broker hasn't been scanned yet. Try again in a minute.", "cleared": []}
+    allowed = {entry["topic"] for entry in stale}
+    cleared, refused = [], []
+    for topic in dict.fromkeys(str(t) for t in topics):
+        if topic in allowed and publish_retained is not None and publish_retained(topic):
+            cleared.append(topic)
+        else:
+            refused.append(topic)
+    retained_store.forget(cleared)
+    if cleared:
+        _LOGGER.info("Cleared %d stale retained topic(s)", len(cleared))
+        tracker.evaluate_health()
+    with tracker.lock:
+        tracker.revision += 1
+    return {"ok": bool(cleared) or not refused, "cleared": cleared, "refused": refused}
+
+
+def clear_retained_commands(ieee: str) -> dict:
+    """Delete a device's retained /set topics from the broker with an empty retained message.
+    Only topics the broker replayed as retained commands for this device are touched."""
+    topics = tracker.retained_commands_of(ieee)
+    if not topics:
+        return {"ok": False, "error": "No retained command for this device", "cleared": []}
+    cleared = [topic for topic in topics if publish_retained is not None and publish_retained(topic)]
+    tracker.forget_retained_commands(cleared)
+    if cleared:
+        _LOGGER.info("Cleared retained command(s): %s", ", ".join(cleared))
+        tracker.evaluate_health()
+    ok = len(cleared) == len(topics)
+    return {"ok": ok, "topics": topics, "cleared": cleared, "error": None if ok else "MQTT is not connected"}
+
+
 # ------------------------------------------------------------------ threads
+
+
+def networkmap_timeout() -> int:
+    """Seconds to wait for Zigbee2MQTT's routing scan answer. Large meshes can take over 20 minutes."""
+    try:
+        minutes = int(options.get("networkmap_timeout_minutes", 60))
+    except (TypeError, ValueError):
+        minutes = 60
+    return min(max(minutes, 5), 240) * 60
 
 
 def run_networkmap(instance: str | None = None) -> bool:
@@ -735,7 +1007,7 @@ def run_networkmap(instance: str | None = None) -> bool:
     def job() -> None:
         try:
             _LOGGER.info("Routing scan started (%s)", instance or "all networks")
-            result = tracker.scan_networkmap(instance)
+            result = tracker.scan_networkmap(instance, timeout=networkmap_timeout())
             _LOGGER.info("Routing scan finished: %s", result)
         except Exception:  # noqa: BLE001 - scans are best effort
             _LOGGER.exception("Routing scan failed")
@@ -752,8 +1024,8 @@ def run_router_pings() -> bool:
 
     def job() -> None:
         try:
-            # Don't overlap a routing scan that's still running.
-            if scan_lock.acquire(timeout=900):
+            # Don't overlap a routing scan that's still running: wait as long as the scan may take.
+            if scan_lock.acquire(timeout=networkmap_timeout() + 60):
                 scan_lock.release()
             _LOGGER.info("Nightly router ping started")
             result = tracker.ping_routers(stop_event.wait)
@@ -942,12 +1214,24 @@ def apply_settings(changes: dict) -> dict:
             clean[key] = validator(value)
         except ValueError as err:
             errors[key] = str(err)
+    low = clean.get("impossible_temp_min", options.get("impossible_temp_min"))
+    high = clean.get("impossible_temp_max", options.get("impossible_temp_max"))
+    if {"impossible_temp_min", "impossible_temp_max"} & set(clean) and not low < high:
+        key = "impossible_temp_min" if "impossible_temp_min" in clean else "impossible_temp_max"
+        errors[key] = "the lowest temperature must be below the highest"
     if errors:
         return {"ok": False, "errors": errors}
     options.update(clean)
     options["alert_on_join"] = "joined" in (options.get("notify_checks") or [])
     if "ha_entities" in clean:
         discovery.enabled = clean["ha_entities"]
+    if "broker_stats" in clean and mqtt_client is not None and mqtt_client.is_connected():
+        if clean["broker_stats"]:
+            mqtt_client.subscribe(SYS_FILTER, 0)
+            broker_stats.subscribed()
+        else:
+            mqtt_client.unsubscribe(SYS_FILTER)
+            broker_stats.reset()
     if {
         "disabled_checks",
         "offline_alert_minutes",
@@ -956,8 +1240,13 @@ def apply_settings(changes: dict) -> dict:
         "battery_alert_percent",
         "chatty_per_hour",
         "naming_pattern",
+        "impossible_temp_min",
+        "impossible_temp_max",
+        "humidity_stuck_hours",
     } & set(clean):
         tracker.evaluate_health()
+    if clean.get("community_ratings_fetch"):
+        community.fetched_at = 0.0
     if {"alerts_enabled", "notify_checks", "disabled_checks"} & set(clean):
         alerts.rebaseline()
     threading.Thread(target=discovery.sync, daemon=True).start()
@@ -974,6 +1263,8 @@ def refresh_home_assistant() -> None:
         with tracker.lock:
             tracker.ha_device_ids = dict(home_assistant.device_ids)
             tracker.ha_battery = dict(home_assistant.battery)
+            for ieee, found in home_assistant.entities.items():
+                tracker.ha_entities.setdefault(ieee, {}).update(found)
             for ieee, record in tracker.data["devices"].items():
                 if ieee in home_assistant.device_ids:
                     record["area"] = home_assistant.areas.get(ieee)
@@ -996,10 +1287,54 @@ def refresh_leftovers(usage: bool = False) -> list[dict] | None:
     return found
 
 
+def last_name_change() -> str | None:
+    """Time of the latest rename or removal, which can leave retained topics behind."""
+    with tracker.lock:
+        events = tracker.data["events"][-200:]
+        return next((e.get("time") for e in reversed(events) if e.get("kind") in ("renamed", "removed")), None)
+
+
+entity_usage_lock = threading.Lock()
+
+
+def refresh_entity_usage(entity_ids: list[str]) -> None:
+    """Look up what uses the entities of keys a device stopped sending. One lookup at a time."""
+    if not entity_usage_lock.acquire(blocking=False):
+        return
+    try:
+        found = home_assistant.entity_usage(entity_ids)
+    except Exception as err:  # noqa: BLE001 - tried again after USAGE_MAX_AGE
+        _LOGGER.warning("Looking up what uses %d entities in Home Assistant failed: %s", len(entity_ids), err)
+        found = {}
+    finally:
+        entity_usage_lock.release()
+    tracker.set_entity_usage(found, entity_ids)
+
+
+community_lock = threading.Lock()
+
+
+def fetch_community() -> None:
+    """Daily refresh of the community ratings from GitHub; a new file re-runs the health checks."""
+    if not community_lock.acquire(blocking=False):
+        return
+    try:
+        if community.fetch(time.time()):
+            _LOGGER.info("Community ratings updated (%s, %d models)", community.updated, len(community.data["models"]))
+            tracker.evaluate_health()
+            with tracker.lock:
+                tracker._changed(structural=True)
+        elif community.fetch_error:
+            _LOGGER.info("Couldn't fetch the community ratings (%s); trying again in an hour", community.fetch_error)
+    finally:
+        community_lock.release()
+
+
 def scheduler() -> None:
-    global ha_changed_at
+    global ha_changed_at, retained_next
     last_save = last_metrics = last_ha = last_health = 0.0
     leftovers_due = False
+    name_change = last_name_change()
     last_scan_day = last_ping_day = None
     while not stop_event.wait(5):
         now = time.time()
@@ -1029,9 +1364,25 @@ def scheduler() -> None:
                 alerts.check()
                 discovery.sync()
                 last_health = now
+            # Retained messages: after connecting, shortly after a rename or removal, and every 6 hours.
+            changed_names = last_name_change()
+            if changed_names != name_change:
+                name_change = changed_names
+                retained_scan_soon(RETAINED_CHANGE_DELAY)
+            if retained_next and now >= retained_next and mqtt_status.connected and tracker.lists_ready.is_set():
+                if scan_retained():
+                    retained_next = now + RETAINED_RESCAN
+            if options.get("community_ratings_fetch", True) and community.fetch_due(now):
+                threading.Thread(target=fetch_community, name="community", daemon=True).start()
             # What uses devices with a problem: after a registry refresh, for new issues,
             # and retries after a failure. Kept for the next round while a lookup runs.
             usage_refresher.start_due()
+            if home_assistant.available and not entity_usage_lock.locked():
+                wanted = tracker.entity_usage_wanted()
+                if wanted:
+                    threading.Thread(
+                        target=refresh_entity_usage, args=(wanted,), name="ha-entity-usage", daemon=True
+                    ).start()
             hour = int(options.get("networkmap_hour", -1))
             local = datetime.now(tracker.local_tz)
             if hour >= 0 and local.hour == hour and last_scan_day != local.date():
@@ -1326,6 +1677,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, tracker.snapshot_json())
         elif path == "/api/settings":
             self._json(200, settings_payload())
+        elif path == "/api/community":
+            self._json(200, community.all_models())
         elif path == "/api/version":
             self._json(200, {"version": tracker.version, "app": VERSION})
         elif path == "/api/ota":
@@ -1371,6 +1724,18 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(400, {"error": "Unknown device"})
             else:
                 self._json(200, result)
+        elif path == "/api/messages":
+            query = dict(
+                part.split("=", 1)
+                for part in (self.path.split("?", 1)[1] if "?" in self.path else "").split("&")
+                if "=" in part
+            )
+            ieee = unquote(query.get("ieee", "")).lower()
+            messages = tracker.recent_messages(ieee) if IEEE_RE.match(ieee) else None
+            if messages is None:
+                self._json(404, {"error": "Unknown device"})
+            else:
+                self._json(200, {"ieee": ieee, "messages": messages, "now": time.time()})
         elif path == "/api/metrics":
             query = dict(
                 part.split("=", 1)
@@ -1391,6 +1756,27 @@ class Handler(BaseHTTPRequestHandler):
                 "application/json",
                 {"Content-Disposition": f'attachment; filename="zigbee-tracker-backup-{stamp}.json"'},
             )
+        elif path == "/api/coordinator_backup":
+            query = dict(
+                part.split("=", 1)
+                for part in (self.path.split("?", 1)[1] if "?" in self.path else "").split("&")
+                if "=" in part
+            )
+            # HA ingress re-encodes a space as "+"; a base topic can't hold a real "+" (an MQTT wildcard).
+            net, copy_id = unquote_plus(query.get("net", "")), unquote(query.get("id", ""))
+            found = tracker.backup_history.path(net, copy_id) if net in base_topics else None
+            if not found:
+                self._json(404, {"error": "No such backup copy"})
+            else:
+                with open(found, "rb") as handle:
+                    body = handle.read()
+                name = re.sub(r"[^A-Za-z0-9_-]", "_", net)
+                self._send(
+                    200,
+                    body,
+                    "application/json",
+                    {"Content-Disposition": f'attachment; filename="coordinator_backup-{name}-{copy_id}.json"'},
+                )
         elif path == "/api/areas":
             try:
                 self._json(200, {"areas": home_assistant.list_areas(), "floors": home_assistant.list_floors()})
@@ -1403,6 +1789,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(502, {"error": str(err)})
             else:
                 self._json(200, {"ready": found is not None, "leftovers": found or []})
+        elif path == "/api/retained":
+            self._json(200, tracker.retained_payload())
+        elif path == "/api/broker":
+            self._json(200, broker_stats.snapshot(bool(options.get("broker_stats", True))))
         elif path == "/api/export.csv":
             stamp = datetime.now().strftime("%Y-%m-%d")
             self._send(
@@ -1432,7 +1822,14 @@ class Handler(BaseHTTPRequestHandler):
         body = self._body()
         ieee = str(body.get("ieee") or "")
         try:
-            if path == "/api/note":
+            if path == "/api/community/report":
+                choice = body.get("choice") if isinstance(body.get("choice"), dict) else {}
+                result = tracker.community_report(ieee, choice)
+                if result is None:
+                    self._json(404, {"error": "Unknown device or no model"})
+                else:
+                    self._json(200, result)
+            elif path == "/api/note":
                 ok = tracker.set_note(ieee, str(body.get("note") or "")[:2000])
                 self._json(200 if ok else 404, {"ok": ok})
             elif path == "/api/asset":
@@ -1457,6 +1854,12 @@ class Handler(BaseHTTPRequestHandler):
                 if result["errors"]:
                     result["error"] = result["errors"][0]["error"]
                 self._json(200 if result["applied"] or not result["errors"] else 400, result)
+            elif path == "/api/report_profile":
+                result = tracker.set_report_profile(ieee, body.get("profile"), body.get("seconds"))
+                self._json(200 if result["ok"] else 400, result)
+            elif path == "/api/report_defaults":
+                result = tracker.set_report_defaults(body.get("defaults"))
+                self._json(200 if result["ok"] else 400, result)
             elif path == "/api/critical":
                 ok = tracker.set_critical(ieee, bool(body.get("critical")))
                 self._json(200 if ok else 404, {"ok": ok})
@@ -1499,6 +1902,7 @@ class Handler(BaseHTTPRequestHandler):
                     200 if started else 409, {"ok": started, "error": None if started else "A scan is already running"}
                 )
             elif path == "/api/ping":
+                acknowledge_alerts(ieee)
                 result = tracker.ping(ieee)
                 self._json(200 if result["ok"] or result.get("timeout") else 400, result)
             elif path == "/api/forget":
@@ -1534,6 +1938,9 @@ class Handler(BaseHTTPRequestHandler):
                     200 if entry else 400,
                     {"ok": bool(entry), "entry": entry, "error": None if entry else "Invalid device or date"},
                 )
+            elif path == "/api/battery_prices":
+                result = tracker.set_battery_prices(body.get("prices"))
+                self._json(200 if result["ok"] else 400, result)
             elif path == "/api/battery_stock":
                 result = tracker.set_battery_stock(str(body.get("type") or ""), body.get("count"), body.get("delta"))
                 self._json(200 if result["ok"] else 400, result)
@@ -1553,6 +1960,12 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/maintenance":
                 result = tracker.set_maintenance_task(ieee, body.get("task"))
                 self._json(200 if result["ok"] else (404 if result["error"] == "Unknown device" else 400), result)
+            elif path == "/api/firmware_notes":
+                result = tracker.save_firmware_note(body.get("note"))
+                self._json(200 if result["ok"] else 400, result)
+            elif path == "/api/firmware_notes/delete":
+                ok = tracker.delete_firmware_note(str(body.get("id") or ""))
+                self._json(200 if ok else 404, {"ok": ok})
             elif path == "/api/maintenance/remove":
                 ok = tracker.remove_maintenance_task(ieee, str(body.get("id") or ""))
                 self._json(200 if ok else 404, {"ok": ok})
@@ -1585,6 +1998,15 @@ class Handler(BaseHTTPRequestHandler):
                             tracker._changed(structural=True)
                     threading.Thread(target=discovery.sync, daemon=True).start()
                     self._json(200, {"ok": True})
+            elif path == "/api/z2m/last_seen":
+                result = tracker.turn_on_last_seen(str(body.get("instance") or ""))
+                if result["ok"]:
+                    # Zigbee2MQTT sends its new settings in bridge/info just after answering.
+                    threading.Timer(2, tracker.evaluate_health).start()
+                self._json(200 if result["ok"] else (400 if result["error"] == "Unknown network" else 502), result)
+            elif path == "/api/advice/dismiss":
+                ok = tracker.dismiss_advice(str(body.get("key") or ""))
+                self._json(200 if ok else 404, {"ok": ok})
             elif path == "/api/pairing":
                 instance = body.get("instance") if body.get("instance") in base_topics else base_topics[0]
                 result = tracker.start_pairing(
@@ -1633,6 +2055,21 @@ class Handler(BaseHTTPRequestHandler):
                     except Exception:  # noqa: BLE001 - the next refresh catches up
                         pass
                     self._json(200, result)
+            elif path == "/api/retained/clear":
+                topics = body.get("topics")
+                if not isinstance(topics, list) or not topics:
+                    self._json(400, {"ok": False, "error": "No topics chosen"})
+                else:
+                    result = clear_retained([str(t) for t in topics[:2000]])
+                    self._json(200 if result["ok"] else 409, result)
+            elif path == "/api/retained/scan":
+                started = scan_retained()
+                self._json(
+                    200 if started else 409, {"ok": started, "error": None if started else "A scan is already running"}
+                )
+            elif path == "/api/retained_command/clear":
+                result = clear_retained_commands(ieee)
+                self._json(200 if result["ok"] else 404 if "topics" not in result else 502, result)
             elif path == "/api/summary":
                 self._json(200, {"ok": True, **send_weekly_summary()})
             elif path == "/api/import":

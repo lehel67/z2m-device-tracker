@@ -12,6 +12,7 @@ import re
 import threading
 import time
 import uuid
+from collections import deque
 from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from datetime import date as date_cls
@@ -19,15 +20,25 @@ from datetime import time as dtime
 from time import monotonic as _monotonic
 from typing import Any
 
+import firmware_notes
+from backup_history import BackupHistory
+from community import build_report, community_issues, issue_url, model_key, record_model, report_text
+from costs import clean_battery_prices, running_costs
+from group_history import apply as apply_group_history
+from group_history import clean as clean_group_history
+from group_history import clean_state as clean_group_state
+from group_history import prune as prune_group_history
 from health import (
     FLAP_LEAVES,
     FLAP_OUTAGES,
     HOP_CHANGES,
     HOP_DAYS,
+    MISMATCH_MESSAGES,
     REPORT_EVERY_MAX,
     REPORT_EVERY_MIN,
     clean_limits,
     device_issues,
+    group_power_loss,
     group_router_outages,
     late_deadline,
     limit_of,
@@ -40,13 +51,34 @@ from health import (
 )
 from history_import import IEEE_RE, _features, collect_history
 from incidents import build_incidents
+from live_messages import MessageLog
+from mesh_score import clean as clean_mesh_scores
+from mesh_score import record as record_mesh_score
+from mesh_score import score as mesh_score
+from mesh_score import summary as mesh_summary
 from metrics import Metrics
 from naming import kind_of, naming_issues
-from reliability import model_reliability
+from odd_readings import CHECKED as ODD_KEYS
+from odd_readings import believable
+from odd_readings import clean as clean_odd_readings
+from odd_readings import note as note_odd_reading
+from payload_keys import MERGE_SECONDS as PAYLOAD_MERGE_SECONDS
+from payload_keys import SHOW_DAYS as PAYLOAD_SHOW_DAYS
+from payload_keys import clean as clean_payload_keys
+from payload_keys import describe as describe_payload_change
+from payload_keys import merge as merge_payload_change
+from payload_keys import observe as observe_payload_keys
+from reliability import device_ages, model_reliability
 from reporting import audit as reporting_audit
 from reporting import clean as clean_reportings
 from reporting import describe as describe_reporting
 from reporting import slim as slim_reportings
+from reporting_profiles import CHOICES as PROFILE_CHOICES
+from reporting_profiles import clean_defaults as clean_profile_defaults
+from reporting_profiles import defaults as profile_defaults
+from reporting_profiles import effective as effective_profile
+from retained import counts as retained_counts
+from retained import stale_entries
 from route_whatif import what_if
 from router_placement import rank_areas
 from upgrade_impact import (
@@ -72,6 +104,9 @@ MAX_EVENTS = 3000
 MAX_OUTAGES = 200
 # "Left the group" facts kept in history.json, and how long the Groups card shows one.
 MAX_GROUP_LEFT = 100
+# Retained /set topics remembered (memory only), and how much of each payload is kept for display.
+MAX_RETAINED_COMMANDS = 500
+RETAINED_COMMAND_PREVIEW = 120
 GROUP_LEFT_DAYS = 30
 STATUS_ACTIVE = "active"
 STATUS_REMOVED = "removed"
@@ -105,6 +140,11 @@ MAX_TASK_NOTE = 500
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TASK_ID_RE = re.compile(r"^[0-9a-f]{8}$")
 MAX_STOCK = 9999
+# Warranties (asset "warranty_until"): Upkeep lists those ending in the next WARRANTY_AHEAD_DAYS and
+# those that ended in the last WARRANTY_ENDED_DAYS. Health flags one ending within WARRANTY_SOON_DAYS.
+WARRANTY_AHEAD_DAYS = 60
+WARRANTY_ENDED_DAYS = 90
+WARRANTY_SOON_DAYS = 30
 # What uses a device in HA (automations, scripts, scenes): looked up again when a new issue
 # opens and the last answer is older than this; at most this many devices per lookup.
 USAGE_MAX_AGE = 600
@@ -129,6 +169,7 @@ MAX_BRANDS = 50
 RESTORE_KEYS = {
     "alerts_initialised": bool,
     "battery_brand_list": list,
+    "battery_prices": dict,
     "battery_stock": dict,
     "bridges": dict,
     "group_left": list,
@@ -138,8 +179,16 @@ RESTORE_KEYS = {
     "ota_last_check": (str, int, float),
     "summary_sent": (str, dict),
     "z2m_config": dict,
+    "dismissed_advice": list,
     "upgrades": dict,
 }
+
+# Settings advice on the Health tab: one-off notices, each dismissible for good (data["dismissed_advice"]).
+ADVICE_KINDS = frozenset({"last_seen_off"})
+LAST_SEEN_TEXT = (
+    "Silent checks for battery devices are weaker without it: messages Zigbee2MQTT repeats from its "
+    "cache look new, so a device that has gone quiet can still look alive."
+)
 
 # Anything on the broker can publish under the base topic, so incoming text and numbers are checked
 # before they are kept: text must be a string (control characters removed, length capped), numbers
@@ -309,6 +358,11 @@ def clean_task(raw: Any, today: date | None = None) -> tuple[dict | None, str | 
     return task, None
 
 
+def warranty_end(record: dict) -> date | None:
+    """The day a device's warranty ends, from its asset details. None when unset or not a date."""
+    return _iso_date(((record.get("asset") or {}).get("warranty_until") or "").strip()[:10])
+
+
 def task_due(task: dict) -> date:
     """Next due date: last done (or the day the task was added) plus its interval."""
     start = _iso_date(task.get("last_done")) or _iso_date(task.get("created")) or datetime.now(timezone.utc).date()
@@ -364,6 +418,17 @@ def _clean_record(record: dict) -> dict:
         if not isinstance(record.get(key), list):
             record[key] = []
     record["maintenance"] = _clean_tasks(record.get("maintenance"))
+    if "odd_readings" in record:
+        record["odd_readings"] = clean_odd_readings(record["odd_readings"])
+    if "payload_keys" in record:
+        record["payload_keys"] = clean_payload_keys(record["payload_keys"])
+    change = record.get("payload_change")
+    if change is not None and not (
+        isinstance(change, dict)
+        and isinstance(change.get("at"), str)
+        and all(isinstance(change.get(k), list) for k in ("added", "removed"))
+    ):
+        record["payload_change"] = None
     if "reportings" in record:
         record["reportings"] = clean_reportings(record["reportings"])
     inputs = record.get("reporting_inputs")
@@ -516,6 +581,28 @@ def _new_record(ieee: str, instance: str | None) -> dict[str, Any]:
 
 # Command values a reply has to echo before it counts as the answer; other keys only need to appear.
 _ECHOED = ("state", "brightness", "color_temp", "position")
+# Command options and relative moves: Zigbee2MQTT acts on them but never publishes them in the device
+# state, so a reply can't show them. Expecting them made every such command count as missed (#37).
+_NOT_ECHOED = frozenset(
+    {
+        "transition",
+        "brightness_step",
+        "brightness_step_onoff",
+        "brightness_move",
+        "brightness_move_onoff",
+        "color_temp_step",
+        "color_temp_move",
+        "hue_step",
+        "hue_move",
+        "saturation_step",
+        "saturation_move",
+        "effect",
+        "alert",
+        "flash",
+        "on_time",
+        "off_wait_time",
+    }
+)
 
 
 def _expected_reply(rest: str, text: str) -> dict:
@@ -526,12 +613,16 @@ def _expected_reply(rest: str, text: str) -> dict:
             value = json.loads(text)
         except ValueError:
             value = text.strip()
+        if key in _NOT_ECHOED:
+            return {}
         return {key: value if key in _ECHOED else None}
     parsed = _loads(text) if text[:1] == "{" else None
     if not isinstance(parsed, dict):
         return {}
     out = {}
     for key, value in list(parsed.items())[:10]:
+        if key in _NOT_ECHOED:
+            continue
         if key in _ECHOED and isinstance(value, (str, int, float)) and not isinstance(value, bool):
             # TOGGLE flips whatever the state was, so any state answers it.
             out[key] = None if isinstance(value, str) and value.upper() == "TOGGLE" else value
@@ -814,9 +905,17 @@ class Tracker:
         self.ha_leftovers: list[dict] = []
         # IEEE -> {"automations", "scripts", "scenes", "at"} for devices with a problem (see usage_wanted).
         self.ha_usage: dict[str, dict] = {}
+        # IEEE -> {Zigbee2MQTT unique id after "<ieee>_" -> HA entity id}, merged at each registry read and
+        # never trimmed while running, so an entity HA has just removed can still be named.
+        self.ha_entities: dict[str, dict[str, str]] = {}
+        # Entity id -> {"automations", "scripts"} that use it, for keys a device stopped sending.
+        self.entity_usage: dict[str, dict] = {}
+        self._entity_usage_at: dict[str, float] = {}
         self._usage_keys: set[str] = set()
         self._pending: dict[str, dict] = {}
         self.battery_lib = None
+        # community.CommunityRatings, set by main.py.
+        self.community = None
         self.permit: dict[str, dict] = {}
         self.scans: dict[str, list] = {}
         self.scans_path: str | None = None
@@ -832,8 +931,14 @@ class Tracker:
         self._placement_cache: dict[str, tuple] = {}
         self._backups: dict[str, dict] = {}
         self._backups_at = 0.0
+        # Last copies of each network's coordinator_backup.json, next to history.json.
+        self.backup_history = BackupHistory(os.path.join(os.path.dirname(data_path) or ".", "coordinator_backups"))
+        # Current mesh score per network (mesh_score.summary), set by evaluate_health.
+        self.mesh: dict[str, dict] = {}
         self.started = time.time()
         self._late_checked: dict[str, float] = {}
+        # IEEE -> silent limit in seconds from its reporting profile (0 = none), set by evaluate_health.
+        self._report_limits: dict[str, int] = {}
         self._hours: dict[str, dict] = {}
         self._hours_at: int | None = None
         self.addresses: dict[str, dict] = {}
@@ -848,6 +953,17 @@ class Tracker:
         # IEEE -> when its oldest unanswered command (<name>/set) arrived. Memory only.
         # ieee -> (when the first unanswered command was sent, the values a reply must show)
         self._commands: dict[str, tuple[float, dict]] = {}
+        # The last scan of retained messages on the broker (retained.RetainedStore), set by main.py.
+        self.retained = None
+        # Full topic -> {"ieee", "payload", "seen"} for each retained <name>/set the broker replayed when
+        # the tracker subscribed. Memory only: the broker sends them again on every connect.
+        self.retained_commands: dict[str, dict] = {}
+        # IEEE -> arrival times of its last few live messages (memory only), for the availability mismatch check.
+        self._recent: dict[str, deque] = {}
+        # Mosquitto's $SYS statistics (broker_stats.BrokerStats), set by main.py.
+        self.broker_stats = None
+        # The last messages to and from each device, for its Messages tab. Memory only.
+        self.messages = MessageLog(clock=lambda: time.time())
 
     # ------------------------------------------------------------ persistence
 
@@ -878,6 +994,10 @@ class Tracker:
                 self.data["events"] = list(stored.get("events") or [])
                 self.data["imported"] = stored.get("imported")
                 self.data["networkmap"] = stored.get("networkmap") or {}
+                # A scan that was running when the app stopped will never answer this run.
+                for info in self.data["networkmap"].values():
+                    if isinstance(info, dict):
+                        info.pop("running_since", None)
                 self.data["alerted"] = list(stored.get("alerted") or [])
                 for ieee, record in (stored.get("devices") or {}).items():
                     if isinstance(record, dict):
@@ -891,6 +1011,12 @@ class Tracker:
                     self.data["battery_brand_list"] = _brand_list(self.data["battery_brand_list"])
                 if "upgrades" in self.data:
                     self.data["upgrades"] = clean_upgrades(self.data["upgrades"])
+                if "mesh_scores" in self.data:
+                    self.data["mesh_scores"] = clean_mesh_scores(self.data["mesh_scores"])
+                if "group_history" in self.data:
+                    self.data["group_history"] = clean_group_history(self.data["group_history"])
+                if "group_state" in self.data:
+                    self.data["group_state"] = clean_group_state(self.data["group_state"])
             for record in self.data["devices"].values():
                 if _stamp_offline_since(record):
                     self.dirty = True
@@ -983,7 +1109,7 @@ class Tracker:
                     return
                 if rest.endswith("/get") or "/get/" in rest:
                     return
-                self._handle_state(base_topic, rest, text)
+                self._handle_state(base_topic, rest, text, retained)
         except ValueError:
             return
 
@@ -1069,6 +1195,9 @@ class Tracker:
                 if record.get(key) != value:
                     if key == "model" and record.get(key):
                         self._add_event(now, base_topic, ieee, name, "model changed", f"{record[key]} → {value}")
+                    if key == "software_build_id" and record.get(key):
+                        # Device age view: when the firmware last changed (an update from anywhere).
+                        record["firmware_changed"] = now
                     record[key] = value
                     changed = True
             address = _ping_address(device)
@@ -1185,6 +1314,26 @@ class Tracker:
             self.revision += 1
         self.groups[base_topic] = names
         self.group_members[base_topic] = members
+        self._record_group_history(base_topic, names, members)
+
+    def _record_group_history(self, base_topic: str, names: dict[str, str], members: dict[str, list[str]]) -> None:
+        """Membership, name and created/removed changes per group, kept in history.json (see group_history)."""
+        states = self.data.setdefault("group_state", {})
+        history = self.data.setdefault("group_history", {}).setdefault(base_topic, {})
+        devices = self.data["devices"]
+        new_state, changed = apply_group_history(
+            states.get(base_topic),
+            history,
+            names,
+            members,
+            _now(),
+            lambda ieee: _display_name(devices.get(ieee) or {}) or ieee,
+        )
+        if prune_group_history(history, set(members), datetime.fromtimestamp(time.time(), tz=timezone.utc)):
+            changed = True
+        if changed:
+            states[base_topic] = new_state
+            self._changed(structural=True)
 
     def group_health(self, now: float) -> list[dict]:
         """Each group with its members' state and members that left it recently (still on the network)."""
@@ -1204,7 +1353,7 @@ class Tracker:
             names = self.groups.get(bt) or {}
             for gid, ieees in (self.group_members.get(bt) or {}).items():
                 left = left_by.get((bt, gid), [])
-                if not ieees and not left:
+                if not ieees and not left and not ((self.data.get("group_history") or {}).get(bt) or {}).get(gid):
                     continue
                 members = []
                 for ieee in ieees:
@@ -1226,6 +1375,8 @@ class Tracker:
                             "offline_seconds": seconds,
                         }
                     )
+                state = ((self.data.get("group_state") or {}).get(bt) or {}).get(gid) or {}
+                history = ((self.data.get("group_history") or {}).get(bt) or {}).get(gid) or []
                 out.append(
                     {
                         "instance": bt,
@@ -1235,6 +1386,8 @@ class Tracker:
                         "total": len(members),
                         "offline": sum(1 for m in members if m["offline"]),
                         "left": left,
+                        "since": state.get("since"),
+                        "history": list(reversed(history)),
                     }
                 )
         out.sort(key=lambda g: (-g["offline"], not g["left"], g["name"].lower()))
@@ -1600,6 +1753,12 @@ class Tracker:
             pending = self._pending[transaction]
             pending["result"] = payload
             pending["event"].set()
+        elif kind == "networkmap" and str(transaction or "").startswith("z2mt-"):
+            _LOGGER.info(
+                "Routing scan on %s answered after the time limit (status %s); saved it",
+                base_topic,
+                _text(payload.get("status"), 40),
+            )
         if kind == "networkmap":
             self._ingest_networkmap(base_topic, payload)
         elif kind == "permit_join" and payload.get("status") == "ok":
@@ -1624,6 +1783,7 @@ class Tracker:
         record = self._record_for(base_topic, name)
         if record is None:
             return
+        self.messages.add(record["ieee"], "availability", payload.strip())
         state = payload.strip()
         if state.startswith("{"):
             parsed = _loads(state)
@@ -1660,23 +1820,76 @@ class Tracker:
         timed from the first. A retained /set is an old message replayed by the broker, not a command.
         Devices Zigbee2MQTT already marks offline aren't timed: the offline check covers them.
         """
-        if retained:
+        topic = f"{base_topic}/{rest}"
+        if not text.strip():
+            # An empty /set is someone clearing a retained command, not a command.
+            if self.retained_commands.pop(topic, None) is not None:
+                self.revision += 1
             return
         name = rest[: -len("/set")] if rest.endswith("/set") else rest.rsplit("/set/", 1)[0]
+        if retained:
+            self._remember_retained_command(topic, base_topic, name, text)
+            return
         record = self._record_for(base_topic, name)
         if record is None and "/" in name:
-            record = self._record_for(base_topic, name.rsplit("/", 1)[0])
-        if record is None or record.get("status") != STATUS_ACTIVE or record.get("availability") == "offline":
+            name = name.rsplit("/", 1)[0]
+            record = self._record_for(base_topic, name)
+        if record is None:
             return
-        now = time.time()
-        self.expire_commands(now)
-        pending = self._commands.get(record["ieee"])
-        if pending and now - pending[0] > COMMAND_BURST:
-            # Still unanswered when the next command came: that one was missed.
-            self.metrics.add_command(record["ieee"], None, now=pending[0])
-            pending = None
-        # A burst is timed from its first command and answered by the state the last one asked for.
-        self._commands[record["ieee"]] = (pending[0] if pending else now, _expected_reply(rest, text))
+        if record.get("status") == STATUS_ACTIVE and record.get("availability") != "offline":
+            now = time.time()
+            self.expire_commands(now)
+            pending = self._commands.get(record["ieee"])
+            if pending and now - pending[0] > COMMAND_BURST:
+                # Still unanswered when the next command came: that one was missed.
+                self.metrics.add_command(record["ieee"], None, now=pending[0])
+                self.messages.settle(record["ieee"], pending[0], answered=False, now=now)
+                pending = None
+            # A burst is timed from its first command and answered by the state the last one asked for.
+            self._commands[record["ieee"]] = (pending[0] if pending else now, _expected_reply(rest, text))
+        # Logged after the timing above, so settling the previous burst can't touch this command.
+        self.messages.add(record["ieee"], "command", text.strip(), rest[len(name) + 1 :])
+
+    def _remember_retained_command(self, topic: str, base_topic: str, name: str, text: str) -> None:
+        """A retained /set: the broker replays it on every restart. Kept by name, since the broker may
+        send it before Zigbee2MQTT's device list; which device it belongs to is looked up when needed."""
+        if topic not in self.retained_commands and len(self.retained_commands) >= MAX_RETAINED_COMMANDS:
+            return
+        payload = text.strip()
+        if len(payload) > RETAINED_COMMAND_PREVIEW:
+            payload = payload[: RETAINED_COMMAND_PREVIEW - 1] + "…"
+        previous = self.retained_commands.get(topic)
+        if previous and previous["payload"] == payload:
+            return
+        self.retained_commands[topic] = {"base": base_topic, "name": name, "payload": payload, "seen": _now()}
+        self.revision += 1
+
+    def _retained_command_device(self, entry: dict) -> str | None:
+        """The active device a retained /set is for, by its current name (or IEEE address), or None."""
+        base_topic, name = entry["base"], entry["name"]
+        record = self._record_for(base_topic, name)
+        if record is None and "/" in name:
+            # <name>/<endpoint>/set
+            record = self._record_for(base_topic, name.rsplit("/", 1)[0])
+        if record is None and IEEE_RE.fullmatch(name.lower()):
+            # Zigbee2MQTT also takes a device's IEEE address in place of its name.
+            found = self.data["devices"].get(name.lower())
+            record = found if found and found.get("instance") == base_topic else None
+        if record is None or record.get("status") != STATUS_ACTIVE:
+            return None
+        return record["ieee"]
+
+    def retained_commands_of(self, ieee: str) -> list[str]:
+        with self.lock:
+            return sorted(
+                topic for topic, entry in self.retained_commands.items() if self._retained_command_device(entry) == ieee
+            )
+
+    def forget_retained_commands(self, topics: list[str]) -> None:
+        with self.lock:
+            for topic in topics:
+                self.retained_commands.pop(topic, None)
+            self.revision += 1
 
     def _command_answered(self, ieee: str, state: Any) -> None:
         pending = self._commands.get(ieee)
@@ -1688,8 +1901,10 @@ class Tracker:
         if not _reply_matches(expect, state):
             return
         del self._commands[ieee]
-        elapsed = time.time() - start
+        now = time.time()
+        elapsed = now - start
         self.metrics.add_command(ieee, elapsed * 1000 if elapsed <= COMMAND_TIMEOUT else None, now=start)
+        self.messages.settle(ieee, start, answered=elapsed <= COMMAND_TIMEOUT, now=now)
 
     def expire_commands(self, now: float | None = None) -> None:
         """Count commands still unanswered after COMMAND_TIMEOUT as missed."""
@@ -1699,11 +1914,17 @@ class Tracker:
                 if now - start > COMMAND_TIMEOUT:
                     del self._commands[ieee]
                     self.metrics.add_command(ieee, None, now=start)
+                    self.messages.settle(ieee, start, answered=False, now=now)
 
-    def _handle_state(self, base_topic: str, name: str, payload: str) -> None:
+    def _handle_state(self, base_topic: str, name: str, payload: str, retained: bool = False) -> None:
         record = self._record_for(base_topic, name)
         if record is None:
             return
+        if not retained:
+            # Live messages only: a retained state replayed on connect says nothing about now.
+            recent = self._recent.setdefault(record["ieee"], deque(maxlen=MISMATCH_MESSAGES))
+            recent.append(time.time())
+        self.messages.add(record["ieee"], "state", payload)
         parsed = None
         if payload[:1] == "{":
             parsed = _loads(payload)
@@ -1725,8 +1946,27 @@ class Tracker:
             record["lqi"] = lqi
             self.metrics.add_lqi(ieee, lqi)
 
+        # Impossible readings: the believable range of each checked reading, and when it wasn't believable.
+        checked = [(key, parsed[key]) for key in ODD_KEYS if _finite(parsed.get(key))]
+        if checked:
+            store = record.get("odd_readings")
+            if not isinstance(store, dict):
+                store = record["odd_readings"] = {}
+            day = self._today().isoformat()
+            for key, value in checked:
+                if note_odd_reading(store, key, value, self.options, time.time(), day):
+                    structural = True
+        keys_state = record.get("payload_keys")
+        if not isinstance(keys_state, dict):
+            keys_state = record["payload_keys"] = {}
+        added, removed = observe_payload_keys(keys_state, parsed.keys())
+        if added or removed:
+            self._payload_changed(base_topic, record, name, added, removed, now)
+            structural = True
+
         battery = parsed.get("battery")
-        if _finite(battery):
+        # A battery outside 0-100 % isn't a real level: kept out of the record and the battery estimates.
+        if _finite(battery) and believable("battery", battery, self.options):
             if record.get("battery") != battery:
                 structural = True
             record["battery"] = battery
@@ -1760,6 +2000,7 @@ class Tracker:
             previous = record.get("update") or {}
             if previous.get("state") == "updating" and slim["state"] == "idle":
                 self._add_event(now, base_topic, ieee, name, "firmware updated", f"Now on {slim['installed_version']}")
+                record["firmware_changed"] = now
             if slim != previous:
                 if slim["state"] == "available" and previous.get("state") != "available":
                     self._add_event(
@@ -1785,6 +2026,100 @@ class Tracker:
                 reading["reports"] = int(reading.get("reports", 0)) + 1
 
         self._changed(structural=structural)
+
+    def _payload_changed(
+        self, base_topic: str, record: dict, name: str, added: list[str], removed: list[str], now: str
+    ) -> None:
+        """Record a change in the keys a device sends: on the device (for Health) and in its logbook.
+        Changes within a day of the last one are folded into it, so one firmware update is one entry."""
+        ieee = record["ieee"]
+        ts = time.time()
+        last = record.get("payload_change")
+        try:
+            recent = bool(last) and ts - datetime.fromisoformat(last["at"]).timestamp() < PAYLOAD_MERGE_SECONDS
+        except (KeyError, TypeError, ValueError):
+            recent = False
+        merged = merge_payload_change(last if recent else None, added, removed)
+        entities = dict((last or {}).get("entities") or {}) if recent else {}
+        known = self.ha_entities.get(ieee) or {}
+        for key in removed:
+            entity_id = known.get(f"{key}_{base_topic}")
+            if entity_id:
+                entities[key] = entity_id
+        entities = {k: v for k, v in entities.items() if k in merged["removed"]}
+        at = last["at"] if recent else now
+        change = {**merged, "at": at, "entities": entities, "firmware": self._recent_firmware(ieee, ts)}
+        record["payload_change"] = change if merged["added"] or merged["removed"] else None
+        detail = describe_payload_change(merged["added"], merged["removed"])
+        event = None
+        if recent:
+            event = next(
+                (
+                    e
+                    for e in reversed(self.data["events"][-500:])
+                    if e.get("ieee") == ieee and e.get("kind") == "payload changed" and e.get("time") == at
+                ),
+                None,
+            )
+        if event is None:
+            self._add_event(now, base_topic, ieee, name, "payload changed", detail)
+            event = self.data["events"][-1]
+        event["detail"] = detail
+        event["added"], event["removed"] = merged["added"], merged["removed"]
+        if change["firmware"]:
+            event["firmware"] = change["firmware"]
+
+    def _recent_firmware(self, ieee: str, now: float, days: int = 7) -> str | None:
+        """The version from the device's last firmware update in the past few days, if any."""
+        since = datetime.fromtimestamp(now - days * 86400, tz=timezone.utc).isoformat(timespec="seconds")
+        for event in reversed(self.data["events"]):
+            if (event.get("time") or "") < since:
+                break
+            if event.get("ieee") == ieee and event.get("kind") == "firmware updated":
+                detail = str(event.get("detail") or "")
+                return _text(detail.removeprefix("Now on "), 40) if detail.startswith("Now on ") else None
+        return None
+
+    def entity_usage_wanted(self, max_age: float = USAGE_MAX_AGE) -> list[str]:
+        """HA entities of keys a device recently stopped sending, not looked up in the last max_age seconds."""
+        now = time.time()
+        wanted = []
+        with self.lock:
+            for record in self.data["devices"].values():
+                change = record.get("payload_change")
+                if not change or record.get("status") != STATUS_ACTIVE:
+                    continue
+                try:
+                    if now - datetime.fromisoformat(change["at"]).timestamp() > PAYLOAD_SHOW_DAYS * 86400:
+                        continue
+                except (KeyError, TypeError, ValueError):
+                    continue
+                wanted.extend(v for v in (change.get("entities") or {}).values() if isinstance(v, str))
+            return [e for e in dict.fromkeys(wanted) if now - self._entity_usage_at.get(e, 0) >= max_age][:USAGE_LIMIT]
+
+    def set_entity_usage(self, found: dict[str, dict], asked: list[str]) -> None:
+        """Store what uses each asked entity. One missing from found (a failed lookup) keeps what was
+        known and is asked again after USAGE_MAX_AGE."""
+        now = time.time()
+        with self.lock:
+            for entity_id in asked:
+                self._entity_usage_at[entity_id] = now
+                if entity_id not in found:
+                    continue
+                usage = found[entity_id] or {}
+                shown = {key: list(usage.get(key) or []) for key in ("automations", "scripts")}
+                if self.entity_usage.get(entity_id) != shown:
+                    self.entity_usage[entity_id] = shown
+                    self.revision += 1
+
+    def _payload_usage(self, record: dict) -> list[dict]:
+        """For each key the device stopped sending: its HA entity and what uses it, when something does."""
+        out = []
+        for key, entity_id in sorted(((record.get("payload_change") or {}).get("entities") or {}).items()):
+            usage = self.entity_usage.get(entity_id) or {}
+            if usage.get("automations") or usage.get("scripts"):
+                out.append({"key": key, "entity_id": entity_id, **usage})
+        return out
 
     def _ingest_networkmap(self, base_topic: str, payload: dict) -> None:
         now = _now()
@@ -2001,14 +2336,14 @@ class Tracker:
             self._changed(structural=True)
         return {"ok": ok, "error": error, "detail": raw}
 
-    def scan_networkmap(self, base_topic: str | None = None) -> dict:
+    def scan_networkmap(self, base_topic: str | None = None, timeout: float = 3600) -> dict:
         topics = [base_topic] if base_topic else list(self.base_topics)
         results = {}
         for topic in topics:
             with self.lock:
                 self.data["networkmap"].setdefault(topic, {})["running_since"] = _now()
                 self._changed(structural=True)
-            result = self.request(topic, "networkmap", {"type": "raw", "routes": False}, timeout=600)
+            result = self.request(topic, "networkmap", {"type": "raw", "routes": False}, timeout=timeout)
             with self.lock:
                 self.data["networkmap"].setdefault(topic, {}).pop("running_since", None)
                 if result is None:
@@ -2125,6 +2460,46 @@ class Tracker:
         return out
 
     # ------------------------------------------------- single points of failure
+
+    def community_report(self, ieee: str, choice: dict) -> dict | None:
+        """The rating report for the model of `ieee`, as it will be posted, and the GitHub link that posts it.
+
+        Covers every active device of that model on all networks. None for an unknown device or one
+        without a model. `problems` lists choices that still need fixing (only the verdict can be missing).
+        """
+        if self.community is None:
+            return None
+        now = time.time()
+        with self.lock:
+            record = self.data["devices"].get(ieee)
+            found = record_model(record) if record else None
+            if found is None or record.get("type") == "Coordinator":
+                return None
+            same = [
+                r
+                for r in self.data["devices"].values()
+                if r.get("status") == STATUS_ACTIVE and r.get("type") != "Coordinator" and record_model(r) == found
+            ] or [record]
+            bridge = ((self.data.get("bridges") or {}).get(record.get("instance")) or {}).get("info") or {}
+            rows = model_reliability(same, self.data["events"], now)
+            lqis = []
+            for r in same:
+                summary = self.metrics.summary(r["ieee"], now)
+                value = summary.get("lqi_prev_7d")
+                if value is None:
+                    value = summary.get("lqi_24h")
+                if isinstance(value, (int, float)):
+                    lqis.append(float(value))
+        # Keyed by the model as this install names it, so it stays the same once the model is in the file.
+        reporter = self.community.reporter(model_key(*found))
+        fields, comment, problems = build_report(same, bridge, rows[0] if rows else None, lqis, reporter, choice, now)
+        return {
+            "fields": [[k, v] for k, v in fields],
+            "text": report_text(fields),
+            "comment": comment,
+            "url": issue_url(fields, comment),
+            "problems": problems,
+        }
 
     def single_points(self, base_topic: str) -> list[dict]:
         """Routers that are the only path to the coordinator for other routers, from the latest scan."""
@@ -2339,8 +2714,9 @@ class Tracker:
                     info["modified"] = datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc).isoformat(
                         timespec="seconds"
                     )
-                    with open(path, encoding="utf-8") as handle:
-                        backup = json.load(handle)
+                    with open(path, "rb") as handle:
+                        raw = handle.read()
+                    backup = json.loads(raw)
                     meta = backup.get("metadata") or {}
                     info.update(
                         {
@@ -2352,12 +2728,22 @@ class Tracker:
                             "has_key": bool((backup.get("network_key") or {}).get("key")),
                         }
                     )
+                    self.backup_history.consider(bt, raw, backup, info["date"], time.time(), self._names_by_ieee())
                 except (OSError, ValueError, AttributeError) as err:
                     info["error"] = f"Couldn't read it: {err}"
             out[bt] = info
         self._backups = out
         self._backups_at = time.time()
         return out
+
+    def _names_by_ieee(self) -> dict[str, str]:
+        with self.lock:
+            return {ieee: name for ieee, record in self.data["devices"].items() if (name := _display_name(record))}
+
+    def backup_copies(self) -> dict[str, list[dict]]:
+        """Kept copies of each network's coordinator backup, newest first (see backup_history)."""
+        names = self._names_by_ieee()
+        return {bt: self.backup_history.rows(bt, names) for bt in self.base_topics}
 
     # English text of each backup problem; the sidebar translates the same keys (issue.<msg>.detail).
     BACKUP_TEXT = {
@@ -2538,6 +2924,22 @@ class Tracker:
                 issue = self._upgrade_issue(bt, label, now)
                 if issue:
                     out.append(issue)
+            if self.last_seen_off(bt) and f"last_seen_off:{bt}" not in (self.data.get("dismissed_advice") or []):
+                out.append(
+                    {
+                        "key": f"last_seen_off:{bt}",
+                        "kind": "last_seen_off",
+                        "label": "last_seen is off",
+                        "severity": "info",
+                        "ieee": f"network:{bt}",
+                        "title": "last_seen is off in Zigbee2MQTT",
+                        "detail": LAST_SEEN_TEXT,
+                        "msg": "last_seen_off",
+                        "params": {},
+                        "name": f"{label} network",
+                        "instance": bt,
+                    }
+                )
             dips = (hours.get(bt) or {}).get("dips") or []
             if dips:
                 text, params = self._dip_text(dips[0])
@@ -2557,6 +2959,92 @@ class Tracker:
                     }
                 )
         return out
+
+    def stale_retained(self) -> list[dict] | None:
+        """Retained topics from the last broker scan that belong to no current device.
+
+        None until there is a scan and every network has sent its device list: before that, the
+        current names aren't known and every topic would look stale."""
+        store = self.retained
+        if store is None or store.scanned_at is None or not self.lists_ready.is_set():
+            return None
+        topics = store.items()
+        with self.lock:
+            return stale_entries(topics, self.data["devices"], self.names, self.groups, self.base_topics)
+
+    def _retained_issues(self) -> list[dict]:
+        if "stale_retained" in set(self.options.get("disabled_checks") or []):
+            return []
+        stale = self.stale_retained()
+        if not stale:
+            return []
+        n = len(stale)
+        example = stale[0]["topic"]
+        return [
+            {
+                "key": "stale_retained:broker",
+                "kind": "stale_retained",
+                "label": "Stale retained messages",
+                "severity": "info",
+                "ieee": "network:broker",
+                "title": "Stale retained messages",
+                "detail": f"{n} retained message{'s belong' if n != 1 else ' belongs'} to no current device, "
+                f"e.g. {example}. Review on Network → Broker.",
+                "msg": "stale_retained",
+                "params": {"n": n, "topic": example},
+                "name": "MQTT broker",
+                "instance": None,
+            }
+        ]
+
+    def retained_payload(self) -> dict:
+        """The Broker page's list of stale retained messages (first 500) and the scan state."""
+        store = self.retained
+        status = store.status() if store is not None else {"scanned_at": None, "error": None, "truncated": False}
+        stale = self.stale_retained()
+        return {
+            **status,
+            "ready": stale is not None,
+            "total": len(stale or []),
+            "counts": retained_counts(stale or []),
+            "stale": (stale or [])[:500],
+        }
+
+    def last_seen_off(self, base_topic: str) -> bool:
+        """True when the network's Zigbee2MQTT settings say advanced.last_seen is "disable".
+        False while its settings haven't been seen, or don't mention it."""
+        value = ((self.data.get("z2m_config") or {}).get(base_topic) or {}).get("advanced.last_seen")
+        try:
+            return value is not None and json.loads(value) in ("disable", False)
+        except ValueError:
+            return False
+
+    def dismiss_advice(self, key: str) -> bool:
+        """Hide one piece of settings advice (such as last_seen_off:<base topic>) for good."""
+        with self.lock:
+            if not any(i["key"] == key and i["kind"] in ADVICE_KINDS for i in self.issues):
+                return False
+            dismissed = self.data.setdefault("dismissed_advice", [])
+            if key not in dismissed:
+                dismissed.append(key)
+            self.issues = [i for i in self.issues if i["key"] != key]
+            self._changed(structural=True)
+            return True
+
+    def turn_on_last_seen(self, base_topic: str) -> dict:
+        """Ask Zigbee2MQTT to add a last_seen time to every message (advanced.last_seen: ISO_8601)."""
+        if base_topic not in self.base_topics:
+            return {"ok": False, "error": "Unknown network"}
+        try:
+            reply = self.request(base_topic, "options", {"options": {"advanced": {"last_seen": "ISO_8601"}}}, 15)
+        except RuntimeError as err:
+            return {"ok": False, "error": str(err)}
+        if reply is None:
+            return {"ok": False, "error": "Zigbee2MQTT didn't answer within 15 s."}
+        if reply.get("status") != "ok":
+            return {"ok": False, "error": friendly_z2m_error(reply.get("error"))}
+        _LOGGER.info("Turned on last_seen in Zigbee2MQTT (%s)", base_topic)
+        return {"ok": True, "restart_required": bool((reply.get("data") or {}).get("restart_required"))}
 
     def radio(self) -> dict:
         """Zigbee/Wi-Fi channel overlap analysis."""
@@ -2694,7 +3182,24 @@ class Tracker:
             ]
             if overdue:
                 extra["maintenance_overdue"] = sorted(overdue, key=lambda x: -x["days"])
+            recent = self._recent.get(ieee)
+            if recent:
+                extra["recent_messages"] = list(recent)
+            extra["z2m_availability"] = ((bridges.get(record.get("instance")) or {}).get("info") or {}).get(
+                "availability"
+            )
+            if record.get("payload_change"):
+                extra["payload_usage"] = self._payload_usage(record)
+            ends = warranty_end(record)
+            if ends is not None and 0 <= (ends - today).days <= WARRANTY_SOON_DAYS:
+                extra["warranty"] = {"until": ends.isoformat(), "days": (ends - today).days}
             out[ieee] = extra
+        for topic, entry in sorted(self.retained_commands.items()):
+            owner = self._retained_command_device(entry)
+            if owner in out:
+                out[owner].setdefault("retained_commands", []).append(
+                    {"topic": topic, "payload": entry["payload"], "seen": entry["seen"]}
+                )
         return out
 
     def evaluate_health(self) -> tuple[list[dict], bool]:
@@ -2705,31 +3210,104 @@ class Tracker:
             suggestions = self._suggestions()
             context = self._context(now)
             issues = []
+            lqi_by_net: dict[str, list[float]] = {}
             for record in self.data["devices"].values():
                 summary = {**self.metrics.summary(record["ieee"], now), **context.get(record["ieee"], {})}
+                if (
+                    record["status"] == STATUS_ACTIVE
+                    and record.get("type") != "Coordinator"
+                    and isinstance(summary.get("lqi_24h"), (int, float))
+                ):
+                    lqi_by_net.setdefault(record.get("instance") or "", []).append(summary["lqi_24h"])
+                limit = self.report_profile(record, summary)["every"] or 0
+                self._report_limits[record["ieee"]] = limit
+                summary["report_every"] = limit
                 for issue in device_issues(record, summary, self.options, now, suggestions.get(record["ieee"], [])):
                     issue["name"] = _display_name(record) or record["ieee"]
                     issue["instance"] = record["instance"]
                     issues.append(issue)
             group_router_outages(issues, self.data["devices"], self.options, now)
+            group_power_loss(issues, self.data["devices"], self.options, now)
             issues.extend(self._network_issues(now))
+            issues.extend(self._retained_issues())
             issues.extend(self._group_issues(now))
             for issue in naming_issues(list(self.data["devices"].values()), self.options, now):
                 record = self.data["devices"][issue["ieee"]]
                 issue["name"] = _display_name(record) or record["ieee"]
                 issue["instance"] = record["instance"]
                 issues.append(issue)
+            notes = firmware_notes.clean_notes(self.data.get("firmware_notes"))
+            for issue in firmware_notes.note_issues(notes, self.data["devices"], self.options, now):
+                record = self.data["devices"][issue["ieee"]]
+                issue["name"] = _display_name(record) or record["ieee"]
+                issue["instance"] = record["instance"]
+                issues.append(issue)
+            if self.community is not None:
+                for issue in community_issues(list(self.data["devices"].values()), self.community, self.options, now):
+                    record = self.data["devices"][issue["ieee"]]
+                    issue["name"] = _display_name(record) or record["ieee"]
+                    issue["instance"] = record["instance"]
+                    issues.append(issue)
             order = {"warning": 0, "info": 1}
             issues.sort(key=lambda i: (order.get(i["severity"], 2), i["name"].lower()))
 
             def shape(items: list[dict]) -> list:
-                return [(i["key"], i.get("behind"), i.get("devices")) for i in items]
+                return [(i["key"], i.get("behind"), i.get("devices"), i.get("power_devices")) for i in items]
 
             changed = shape(issues) != shape(self.issues)
             self.issues = issues
+            if self._update_mesh_scores(issues, lqi_by_net):
+                changed = True
             if changed:
                 self.revision += 1
         return issues, changed
+
+    def _mesh_inputs(self, bt: str, issues: list[dict], lqis: list[float]) -> dict | None:
+        """The four parts of a network's mesh score (see mesh_score), or None without devices."""
+        devs = [
+            r
+            for r in self.data["devices"].values()
+            if r.get("instance") == bt and r["status"] == STATUS_ACTIVE and r.get("type") != "Coordinator"
+        ]
+        scanned_at = (self.data.get("networkmap") or {}).get(bt, {}).get("scanned_at")
+        backup = backup_of = None
+        if scanned_at:
+            scanned = {r["ieee"] for r in devs if (r.get("routing") or {}).get("scanned_at") == scanned_at}
+            if scanned:
+                cut: set[str] = set()
+                for spof in self.single_points(bt):
+                    cut.update(x["ieee"] for x in spof["routers"])
+                    cut.update(spof["device_list"])
+                backup_of = len(scanned)
+                backup = len(scanned - cut)
+        problems = sum(
+            1 for i in issues if i["severity"] == "warning" and i.get("instance") == bt and not i.get("behind")
+        )
+        return mesh_score(
+            online=sum(1 for r in devs if r.get("availability") != "offline"),
+            total=len(devs),
+            lqi=sum(lqis) / len(lqis) if lqis else None,
+            backup=backup,
+            backup_of=backup_of,
+            problems=problems,
+        )
+
+    def _update_mesh_scores(self, issues: list[dict], lqi_by_net: dict[str, list[float]]) -> bool:
+        """Work out each network's mesh score and keep today's in the history. True if a score changed."""
+        today = self._today()
+        history = self.data.setdefault("mesh_scores", {})
+        out: dict[str, dict] = {}
+        for bt in self.base_topics:
+            current = self._mesh_inputs(bt, issues, lqi_by_net.get(bt, []))
+            if current is None:
+                continue
+            rows = history.setdefault(bt, [])
+            if record_mesh_score(rows, today, current):
+                self.dirty = True
+            out[bt] = mesh_summary(rows, today, current)
+        changed = {bt: s["score"] for bt, s in out.items()} != {bt: s["score"] for bt, s in self.mesh.items()}
+        self.mesh = out
+        return changed
 
     # ------------------------------------------------------ leftovers in HA
 
@@ -2834,8 +3412,43 @@ class Tracker:
 
     # ----------------------------------------------------------------- public
 
+    def recent_messages(self, ieee: str) -> list[dict] | None:
+        """The device's last messages, newest first, or None for an unknown device."""
+        with self.lock:
+            if ieee not in self.data["devices"]:
+                return None
+            return self.messages.recent(ieee)
+
     def _oui_vendor(self, ieee: str) -> str | None:
         return self.oui.get(ieee[2:8].upper()) if ieee.startswith("0x") else None
+
+    def save_firmware_note(self, raw: Any) -> dict:
+        """Add or change a firmware note (see firmware_notes.py)."""
+        with self.lock:
+            notes = firmware_notes.clean_notes(self.data.get("firmware_notes"))
+            note, error = firmware_notes.save_note(notes, raw, _now())
+            if error:
+                return {"ok": False, "error": error}
+            self.data["firmware_notes"] = notes
+            self._changed(structural=True)
+        self.evaluate_health()
+        return {"ok": True, "note": note}
+
+    def delete_firmware_note(self, note_id: str) -> bool:
+        with self.lock:
+            notes = firmware_notes.clean_notes(self.data.get("firmware_notes"))
+            if not firmware_notes.delete_note(notes, str(note_id or "")):
+                return False
+            self.data["firmware_notes"] = notes
+            self._changed(structural=True)
+        self.evaluate_health()
+        return True
+
+    def firmware_note_block(self, record: dict | None) -> str | None:
+        """Why an update shouldn't be in "Update all" or the overnight run: you noted its version."""
+        with self.lock:
+            notes = firmware_notes.clean_notes(self.data.get("firmware_notes"))
+            return firmware_notes.ota_block(notes, record, self.data["devices"])
 
     def incidents(self) -> list[dict]:
         """Grouped problem events (see incidents.py), newest first. Call with the lock held.
@@ -2863,6 +3476,10 @@ class Tracker:
             for record in self.data["devices"].values():
                 ieee = record["ieee"]
                 item = dict(record)
+                # Only the health check reads it; the issue carries what the page shows.
+                item.pop("odd_readings", None)
+                # The learning counts only matter to the tracker.
+                item.pop("payload_keys", None)
                 item["metrics"] = self.metrics.summary(ieee, now)
                 item["uptime_30d"] = uptime(record, now)
                 item["oui_vendor"] = self._oui_vendor(ieee)
@@ -2875,17 +3492,28 @@ class Tracker:
                 item["battery_record"] = self.battery_summary(record) if self.is_battery_device(record) else None
                 item["suggestions"] = suggestions.get(ieee, [])
                 bridge_info = (self.data.get("bridges") or {}).get(record.get("instance")) or {}
+                item["reporting_profile"] = self.report_profile(record, item["metrics"])
                 item["offline_timing"] = offline_timing(
-                    record, (bridge_info.get("info") or {}).get("availability"), self.options, now
+                    record,
+                    (bridge_info.get("info") or {}).get("availability"),
+                    self.options,
+                    now,
+                    item["reporting_profile"]["every"] or 0,
                 )
                 item["can_ping"] = self.can_ping(record) is None
                 item["reporting_audit"] = self.reporting_audit(record, item["metrics"].get("msg_rate_6h"))
                 item["kind"] = kind_of(record)
+                if self.community is not None:
+                    item["community_key"] = self.community.key_for(record)
                 devices.append(item)
             payload = {
                 "devices": devices,
                 "events": self.data["events"],
                 "incidents": self.incidents(),
+                "firmware_notes": firmware_notes.clean_notes(self.data.get("firmware_notes")),
+                "firmware_note_devices": firmware_notes.matches(
+                    firmware_notes.clean_notes(self.data.get("firmware_notes")), self.data["devices"]
+                ),
                 "instances": self.base_topics,
                 "imported": self.data.get("imported"),
                 "issues": self.issues,
@@ -2893,11 +3521,24 @@ class Tracker:
                 "permit": self.permit,
                 "battery_shopping": self.battery_shopping(60),
                 "model_reliability": model_reliability(list(self.data["devices"].values()), self.data["events"], now),
+                "device_ages": device_ages(list(self.data["devices"].values()), self.data["events"], self._today()),
+                "community": self.community.snapshot(
+                    list(self.data["devices"].values()), bool(self.options.get("community_ratings_fetch", True))
+                )
+                if self.community is not None
+                else None,
                 "ha_leftovers": self.ha_leftovers,
+                "retained": self.retained_payload(),
+                "broker": self.broker_stats.snapshot(bool(self.options.get("broker_stats", True)))
+                if self.broker_stats is not None
+                else None,
                 "battery_stock": dict(self.data.get("battery_stock") or {}),
+                "battery_prices": clean_battery_prices(self.data.get("battery_prices")),
+                "running_costs": self.running_costs(now),
                 "battery_brands": self.battery_brands(),
                 "battery_brand_list": list(self.brand_list()),
                 "maintenance": self.maintenance_list(),
+                "warranties": self.warranty_list(),
                 "bridges": self.data.get("bridges") or {},
                 "radio": self.radio(),
                 "network_hours": self.network_hours(now),
@@ -2905,6 +3546,9 @@ class Tracker:
                 "single_points": {bt: self.single_points(bt) for bt in self.base_topics},
                 "router_placement": {bt: self.router_placement(bt, now) for bt in self.base_topics},
                 "backups": self._backups,
+                "backup_copies": self.backup_copies(),
+                "mesh_scores": self.mesh,
+                "report_defaults": profile_defaults(self.data.get("report_profile_defaults")),
                 "groups": self.groups,
                 "group_health": self.group_health(now),
                 "scan_times": {bt: [x["at"] for x in self.scans.get(bt) or []] for bt in self.base_topics},
@@ -2956,6 +3600,7 @@ class Tracker:
                     bt: ((self.data.get("bridges") or {}).get(bt) or {}).get("state") for bt in self.base_topics
                 },
                 "alerts_paused": self.alerts_paused(),
+                "mesh_scores": {bt: s["score"] for bt, s in self.mesh.items()},
             }
 
     def export_csv(self) -> bytes:
@@ -3074,7 +3719,9 @@ class Tracker:
             clean = {field: str(asset.get(field) or "").strip()[:200] for field in ASSET_FIELDS}
             record["asset"] = {k: v for k, v in clean.items() if v}
             self._changed(structural=True)
-            return True
+        # The warranty date drives the warranty_ending check.
+        self.evaluate_health()
+        return True
 
     # ------------------------------------------------------------ maintenance
 
@@ -3163,6 +3810,33 @@ class Tracker:
                         }
                     )
         return sorted(out, key=lambda x: (x["due"], x["name"].lower(), x["title"].lower()))
+
+    def warranty_list(self) -> list[dict]:
+        """Active devices whose warranty ends in the next WARRANTY_AHEAD_DAYS or ended in the last
+        WARRANTY_ENDED_DAYS: soonest first, then the ended ones, most recent first."""
+        today = self._today()
+        out = []
+        with self.lock:
+            for record in self.data["devices"].values():
+                if record["status"] != STATUS_ACTIVE or record.get("type") == "Coordinator":
+                    continue
+                ends = warranty_end(record)
+                if ends is None:
+                    continue
+                days = (ends - today).days
+                if not -WARRANTY_ENDED_DAYS <= days <= WARRANTY_AHEAD_DAYS:
+                    continue
+                asset = record.get("asset") or {}
+                out.append(
+                    {
+                        "ieee": record["ieee"],
+                        "name": _display_name(record) or record["ieee"],
+                        "until": ends.isoformat(),
+                        "days": days,
+                        "purchase_date": asset.get("purchase_date") or "",
+                    }
+                )
+        return sorted(out, key=lambda x: (x["days"] < 0, abs(x["days"]), x["name"].lower()))
 
     # ---------------------------------------------------------------- battery
 
@@ -3273,6 +3947,51 @@ class Tracker:
             stock[key] = max(0, min(MAX_STOCK, new))
             self._changed(structural=True)
             return {"ok": True, "type": key, "count": stock[key]}
+
+    def set_battery_prices(self, prices: Any) -> dict:
+        """Replace the price per battery type (Settings). Types left out or set to null are removed."""
+        if not isinstance(prices, dict):
+            return {"ok": False, "error": "Give prices as {type: price}"}
+        with self.lock:
+            self.data["battery_prices"] = clean_battery_prices({k: v for k, v in prices.items() if v is not None})
+            self._changed(structural=True)
+            return {"ok": True, "prices": dict(self.data["battery_prices"])}
+
+    def running_costs(self, now: float | None = None) -> dict:
+        """Device and battery spend (see costs.running_costs), plus the battery types in use for Settings."""
+        now = time.time() if now is None else now
+        items = []
+        types: set[str] = set()
+        with self.lock:
+            for record in self.data["devices"].values():
+                if record.get("type") == "Coordinator":
+                    continue
+                battery = self.is_battery_device(record)
+                info = self.battery_summary(record) if battery else {}
+                active = record["status"] == STATUS_ACTIVE
+                if battery and active and info.get("type"):
+                    types.add(info["type"])
+                items.append(
+                    {
+                        "model": " ".join(
+                            x for x in (record.get("vendor"), record.get("model") or record.get("model_id")) if x
+                        ),
+                        "price": (record.get("asset") or {}).get("price"),
+                        "active": active,
+                        "battery": battery,
+                        "type": info.get("type") or "",
+                        "quantity": info.get("quantity") or 1,
+                        "changes": [r.get("date") for r in info.get("replacements") or []],
+                        "installed": info.get("installed") or "",
+                        "estimate_days": self.metrics.summary(record["ieee"], now).get("battery_estimate_days")
+                        if battery and active
+                        else None,
+                    }
+                )
+            prices = clean_battery_prices(self.data.get("battery_prices"))
+        out = running_costs(items, prices, self._today())
+        out["types"] = sorted(types, key=str.casefold)
+        return out
 
     def set_battery_info(self, ieee: str, values: dict) -> bool:
         with self.lock:
@@ -3513,6 +4232,49 @@ class Tracker:
             or record["ieee"] in self.ha_battery
         )
 
+    def report_profile(self, record: dict, summary: dict) -> dict:
+        """The device's reporting profile and silent limit (see reporting_profiles)."""
+        return effective_profile(record, kind_of(record), summary, self.data.get("report_profile_defaults"))
+
+    def set_report_profile(self, ieee: str, profile: Any, seconds: Any = None) -> dict:
+        """Pick a device's reporting profile. "default" goes back to its type's default; "custom" keeps
+        its own interval (seconds, or the one it has)."""
+        with self.lock:
+            record = self.data["devices"].get(ieee)
+            if record is None:
+                return {"ok": False, "error": "unknown device"}
+            if profile not in (*PROFILE_CHOICES, "default"):
+                return {"ok": False, "error": "unknown profile"}
+            if profile == "custom":
+                seconds = seconds if seconds is not None else record.get("report_every")
+                if isinstance(seconds, bool) or not isinstance(seconds, (int, float)):
+                    return {"ok": False, "error": "seconds must be a number"}
+                if not REPORT_EVERY_MIN <= seconds <= REPORT_EVERY_MAX:
+                    return {"ok": False, "error": f"seconds must be {REPORT_EVERY_MIN} to {REPORT_EVERY_MAX}"}
+                record["report_every"] = int(seconds)
+            if profile == "default":
+                record.pop("report_profile", None)
+                record.pop("report_every", None)
+            else:
+                record["report_profile"] = profile
+            self._changed(structural=True)
+        self.evaluate_health()
+        return {"ok": True}
+
+    def set_report_defaults(self, changes: Any) -> dict:
+        """Change the default profile of one or more device types: {group: profile}."""
+        try:
+            clean = clean_profile_defaults(changes)
+        except ValueError as err:
+            return {"ok": False, "error": str(err)}
+        with self.lock:
+            stored = dict(self.data.get("report_profile_defaults") or {})
+            stored.update(clean)
+            self.data["report_profile_defaults"] = stored
+            self._changed(structural=True)
+        self.evaluate_health()
+        return {"ok": True, "defaults": profile_defaults(stored)}
+
     def set_report_every(self, ieee: str, seconds: int | None) -> bool:
         """Per-device "should report at least every" interval in seconds; None or 0 turns it off."""
         return not self.set_report_every_many([{"ieee": ieee, "seconds": seconds}])["errors"]
@@ -3537,10 +4299,14 @@ class Tracker:
                 elif seconds and not REPORT_EVERY_MIN <= seconds <= REPORT_EVERY_MAX:
                     errors.append({"ieee": ieee, "error": f"seconds must be {REPORT_EVERY_MIN} to {REPORT_EVERY_MAX}"})
                 else:
+                    # Setting an interval makes it the device's Custom profile; turning it off turns the check off,
+                    # rather than falling back to the type default.
                     if seconds:
                         record["report_every"] = int(seconds)
+                        record["report_profile"] = "custom"
                     else:
                         record.pop("report_every", None)
+                        record["report_profile"] = "off"
                     applied += 1
             if applied:
                 self._changed(structural=True)
@@ -3553,7 +4319,7 @@ class Tracker:
         due = False
         with self.lock:
             for ieee, record in self.data["devices"].items():
-                deadline = late_deadline(record, self.started)
+                deadline = late_deadline(record, self.started, self._report_limits.get(ieee))
                 if deadline is not None and now >= deadline and self._late_checked.get(ieee) != deadline:
                     self._late_checked[ieee] = deadline
                     due = True
@@ -4558,6 +5324,8 @@ class Tracker:
                 if record.get("successor") == ieee:
                     record["successor"] = None
             self._commands.pop(ieee, None)
+            self._recent.pop(ieee, None)
+            self.messages.forget(ieee)
             self.metrics.forget(ieee)
             self._changed(structural=True)
             return True

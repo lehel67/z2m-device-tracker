@@ -14,6 +14,9 @@ configuration:
   fire_events:
     name: Fire events
     description: Fire z2m_tracker_alert events for automations.
+  ha_repairs:
+    name: Show problems in HA Repairs
+    description: With the integration installed, list problems in Settings > Repairs, such as critical devices offline, offline networks and coordinator backup problems. Each one closes itself when fixed.
   notify_service:
     name: Notify service
     description: Also send alerts to a notify service, e.g. notify.mobile_app_phone.
@@ -44,6 +47,9 @@ configuration:
   networkmap_hour:
     name: Routing scan hour
     description: Hour of the nightly routing scan, or -1 to turn it off.
+  networkmap_timeout_minutes:
+    name: Routing scan time limit (minutes)
+    description: How long to wait for Zigbee2MQTT to finish a routing scan. Raise it for large networks.
   ha_entities:
     name: Tracker sensors
     description: Add tracker sensors to each Zigbee2MQTT device via MQTT discovery.
@@ -77,9 +83,39 @@ configuration:
   quiet_end:
     name: Quiet hours end
     description: End of quiet hours, as HH:MM. The window can cross midnight.
+  escalate_enabled:
+    name: Escalate unanswered alerts
+    description: If nobody mutes, pings or fixes a problem in time, send its alert again to a second notify service. Each problem escalates once.
+  escalate_hours:
+    name: Escalate after (hours)
+    description: How long an alert can go unanswered before it escalates.
+  escalate_service:
+    name: Escalation notify service
+    description: The second notify service, e.g. notify.mobile_app_partner_phone.
+  escalate_critical_only:
+    name: Escalate critical devices only
+    description: Only escalate alerts for devices marked Critical device.
   naming_pattern:
     name: Naming pattern
     description: Pattern for device names, built from tokens in curly braces - area, type, model and n (a number that keeps names unique). Fills in the name of new devices when pairing and drives the Naming check. Empty turns it off.
+  battery_shop_url:
+    name: Battery shop link
+    description: Store search address with {type} where the battery type goes, e.g. https://www.amazon.co.uk/s?k={type}. Adds a cart button to each battery you need to buy. Empty hides the buttons.
+  retained_autoclear:
+    name: Clear old retained topics after a rename
+    description: After a device is renamed, delete the retained messages the broker still keeps under its old name. Off lists them on Network → Broker for you to clear.
+  broker_stats:
+    name: Read broker statistics
+    description: Subscribe to Mosquitto's $SYS/broker/# topics to show clients, retained messages, dropped messages, uptime and message rates on Network → Broker.
+  impossible_temp_min:
+    name: Lowest believable temperature (°C)
+    description: A temperature below this counts as an impossible reading.
+  impossible_temp_max:
+    name: Highest believable temperature (°C)
+    description: A temperature above this counts as an impossible reading.
+  humidity_stuck_hours:
+    name: Humidity stuck delay (hours)
+    description: How long humidity must stay at exactly 0 or 100% before it counts as stuck.
   mqtt_host:
     name: MQTT broker address
     description: Your MQTT broker, if it isn't the Mosquitto broker app. Empty uses the broker Home Assistant offers.
@@ -101,3 +137,6 @@ configuration:
   metrics_token:
     name: Prometheus metrics token
     description: Set a token of 16 or more characters to serve Prometheus metrics on port 9099. Empty keeps it off.
+  community_ratings_fetch:
+    name: Fetch community ratings
+    description: Download the newest community device ratings from GitHub once a day. Off uses the copy that comes with the app.

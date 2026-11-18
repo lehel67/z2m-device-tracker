@@ -1196,7 +1196,10 @@
     const tone = st === "removed" ? "off" : st !== "active" ? "bad" : w ? (severe(w, d) ? "bad" : "warn") : "";
     return `<span class="state-ic ${tone} ${cls}">${ic(kindIcon(d))}</span>`;
   };
-  const haystack = (d) => [d.ieee, d.friendly_name, ...(d.names || []).map((n) => n.name), d.model, d.vendor, d.description, d.model_id, d.manufacturer, d.oui_vendor, d.z2m_description, d.ha_name, d.area, d.note, d.instance, netLabel(d.instance), d.type, ...Object.values(d.asset || {})].filter(Boolean).join(" ").toLowerCase();
+  // Search text: names, vendor + model (as shown in the list and the models card), type and the kind of device (bulb, plug, door...).
+  const haystack = (d) => [d.ieee, nameOf(d), d.friendly_name, ...(d.names || []).map((n) => n.name), deviceLine(d), d.model, vendorOf(d), d.vendor, d.description, d.model_id, d.manufacturer, d.oui_vendor, d.z2m_description, d.ha_name, d.area, d.note, d.instance, netLabel(d.instance), d.type, typeLabel(d.type), kindIcon(d).replace(/-/g, " "), ...Object.values(d.asset || {})].filter(Boolean).join(" ").toLowerCase();
+  const queryTerms = () => state.query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const matchesQuery = (terms) => (d) => { if (!terms.length) return true; const h = haystack(d); return terms.every((x) => h.includes(x)); };
 
   // ------------------------------------------------------------ server-made text
   // The app sends English text (also used for HA notifications) plus msg + params. These translate it
@@ -1397,9 +1400,7 @@
   ];
   const filtered = () => {
     const pred = (CHIPS.find((c) => c[0] === state.chip) || CHIPS[0])[2];
-    const terms = state.query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    let list = visible().filter(pred);
-    if (terms.length) list = list.filter((d) => { const h = haystack(d); return terms.every((t) => h.includes(t)); });
+    const list = visible().filter(pred).filter(matchesQuery(queryTerms()));
     const clean = (v) => (v ? String(v).replace(/^[^\p{L}\p{N}]+/u, "") || null : null);
     const time = (v) => { const t = v ? Date.parse(v) : NaN; return isNaN(t) ? null : t; };
     const order = { ghost: 0, offline: 1, active: 2, removed: 3 };
@@ -1467,6 +1468,8 @@
     const all = visible();
     const list = filtered();
     const warnCount = all.filter(CHIPS[1][2]).length;
+    // Chip counts follow the search, so a search that finds nothing under one chip shows where its matches are.
+    const matched = all.filter(matchesQuery(queryTerms()));
     const col = (k, key, cls = "") => {
       const label = th(key);
       const on = state.sort === k, up = on ? sortDir() > 0 : (DEFAULT_DIR[k] || 1) > 0;
@@ -1514,13 +1517,13 @@
       ${warnCount && state.chip !== "attention" ? `<div class="alert" style="--a: var(--warning)">${ic("alert")}<div class="body"><b>${th("devices.attention", { n: warnCount })}</b> ${th("devices.attention_text")}</div><button class="btn" data-chip="attention">${th("devices.show")}</button></div>` : ""}
       <div class="tools">
         <label class="search">${ic("magnify")}<input id="q" type="search" placeholder="${esc(t("devices.search"))}" value="${esc(state.query)}" autocomplete="off" spellcheck="false" aria-label="${esc(t("devices.search"))}"></label>
-        <div class="chips">${CHIPS.filter(([k, , p]) => k !== "critical" || state.chip === k || all.some(p)).map(([k, l, p]) => `<button class="chip" data-chip="${k}" aria-pressed="${state.chip === k}">${ic("check", "s18")}${th(l)} <span class="n">${all.filter(p).length}</span></button>`).join("")}</div>
+        <div class="chips">${CHIPS.filter(([k, , p]) => k !== "critical" || state.chip === k || all.some(p)).map(([k, l, p]) => `<button class="chip" data-chip="${k}" aria-pressed="${state.chip === k}">${ic("check", "s18")}${th(l)} <span class="n">${matched.filter(p).length}</span></button>`).join("")}</div>
         <div class="tools-right"><button class="chip toggle" data-act="group" aria-pressed="${state.group}">${ic("map-marker-outline", "s18")}${th("devices.group_by_area")}</button><button class="btn filled" data-act="pair">${ic("plus", "s18")}${th("devices.pair")}</button></div>
       </div>
       <div class="${pane ? "split" : ""}"><div class="split-list">
       <div class="card">
         <div class="table-wrap">${list.length ? `<table class="dt ${pane ? "compact" : ""}"><thead><tr><th class="pick-cell"><label class="tick"><input type="checkbox" id="pickAll" aria-label="${esc(t("select.all"))}"></label></th><th class="ic-cell"><span class="sr">${th("devices.col.type")}</span></th>${col("name", "devices.col.name")}${col("area", "devices.col.area", "hide-sm col-area")}${col("model", "devices.col.model", "hide-md col-model")}${col("status", "devices.col.status")}${col("battery", "devices.col.battery", "num hide-sm")}${col("signal", "devices.col.signal", "num hide-md")}${col("last_seen", "devices.col.last_seen", "hide-md")}</tr></thead><tbody>${rows}</tbody></table>`
-          : emptyState("magnify", th("devices.none_found"), state.query ? th("devices.no_match", { query: esc(state.query) }) : th("devices.empty_filter"))}</div>
+          : emptyState("magnify", th("devices.none_found"), (state.query ? th("devices.no_match", { query: esc(state.query) }) : th("devices.empty_filter")) + (state.query && state.chip !== "all" && matched.filter(CHIPS[0][2]).length ? `<button class="btn outlined" data-chip="all" style="margin-top:12px">${th("devices.match_elsewhere", { n: matched.filter(CHIPS[0][2]).length })}</button>` : ""))}</div>
       </div>
       ${shown.length < list.length ? `<div class="row-actions" style="justify-content:center;padding-top:12px"><button class="btn outlined" data-act="dev-all">${th("devices.show_all", { n: list.length })}</button></div>` : ""}
       <div class="count-line" style="margin:8px 4px 0;text-align:right">${th("devices.count", { shown: list.length, n: all.length })}</div>
@@ -3615,14 +3618,14 @@
       !gone && { k: "rename", a: 'data-act="rename"', i: "pencil", l: th("more.rename") },
       lowBat && { k: "battery", a: 'data-act="battery-replaced"', i: "battery-sync", l: th("battery.replaced") },
       d.can_ping && { k: "ping", a: `data-act="ping" data-ieee="${id}" ${PING.get(d.ieee)?.busy ? "disabled" : ""}`, i: "refresh", l: th("ping.button") },
-      canReplace(d) && { k: "replace", a: `data-act="replace" data-ieee="${id}"`, i: "swap-horizontal", l: th("replace.button") },
+      canSwap(d) && { k: "replace", a: `data-act="replace" data-ieee="${id}"`, i: "swap-horizontal", l: th("replace.button") },
       !gone && d.type === "EndDevice" && { k: "move", a: `data-act="move" data-ieee="${id}"`, i: "swap-horizontal", l: th("more.change_router") },
       !gone && d.type === "Router" && d.routing?.scanned_at && d.routing.scanned_at === state.data.networkmap?.[d.instance]?.scanned_at && { k: "whatif", a: `data-act="whatif" data-ieee="${id}"`, i: "lan-disconnect", l: th("whatif.button") },
       d.model && d.supported !== false && { href: `https://www.zigbee2mqtt.io/devices/${encodeURIComponent(String(d.model).replace(/\//g, "_"))}.html" target="_blank" rel="noopener`, i: "information-outline", l: th("more.docs") },
       d.ha_device_id && { href: `/config/devices/device/${esc(d.ha_device_id)}" target="_top`, i: "home-assistant", l: th("more.device_page") },
       z2m && !gone && { href: `${esc(z2m)}" target="_top`, i: "zigbee", l: "Zigbee2MQTT" },
     ].filter(Boolean);
-    const lead = ["replace", "battery", "rename"].map((k) => all.find((x) => x.k === k)).filter(Boolean);
+    const lead = [canReplace(d) && "replace", "battery", "rename"].map((k) => k && all.find((x) => x.k === k)).filter(Boolean);
     const shown = lead.slice(0, 2), rest = all.filter((x) => !shown.includes(x));
     if (rest.length === 1) shown.push(rest.pop());
     const el = (x, cls, extra = "") => x.href ? `<a class="${cls}" href="${x.href}" ${extra}>${ic(x.i, "s18")}${x.l}</a>` : `<button class="${cls}" ${x.a} ${extra}>${ic(x.i, "s18")}${x.l}</button>`;
@@ -3773,7 +3776,7 @@
       ? warn(`<b>${th(`reporting.rule.${r.rule}`)}</b> ${th(`reporting.why.${r.rule}`)}${r.recommended ? ` ${th("reporting.recommended", { values: esc(rptWords(r, r.recommended)) })}` : ""}`,
         active && r.recommended ? `<button class="btn" data-act="reporting-fix" ${ident(r)}>${ic("tune", "s18")}${th("reporting.use_recommended")}</button>` : "")
       : ""}</div>`);
-    const missing = a.missing.map((r) => `<div><div class="t1">${esc(rptName(r))}${where(r)}</div><div class="t2">${th("reporting.not_set")}</div>${warn(`<b>${th("reporting.rule.never")}</b> ${th("reporting.why.missing")}`,
+    const missing = a.missing.map((r) => `<div><div class="t1">${esc(rptName(r))}${where(r)}</div><div class="t2">${th(r.sent ? "reporting.not_set_sent" : "reporting.not_set")}</div>${r.sent ? "" : warn(`<b>${th("reporting.rule.never")}</b> ${th("reporting.why.missing")}`,
       active ? `<button class="btn" data-act="reconfigure" data-ieee="${esc(d.ieee)}">${ic("refresh", "s18")}${th("common.reconfigure")}</button>` : "")}</div>`);
     const body = rows.length || missing.length ? `<div class="rpt">${rows.join("")}${missing.join("")}</div>` : `<div class="card-content muted">${th("reporting.none")}</div>`;
     const backed = a.confirmed ? `<p class="tnote">${th("reporting.confirmed", { n: esc(a.rate) })}</p>` : "";
@@ -5133,6 +5136,8 @@
 
   // ------------------------------------------------------------ replacement wizard
   const canReplace = (d) => d.type !== "Coordinator" && !d.successor && (["offline", "removed", "ghost"].includes(statusOf(d)) || (d.issues || []).some((i) => i.kind === "silent"));
+  // Any device can be swapped on purpose (a test device, another brand); only broken ones get Replace… as the main button.
+  const canSwap = (d) => d.type !== "Coordinator" && !d.successor;
   const logLine = (e) => {
     const ref = e.ref && state.byIeee.get(e.ref);
     if (!ref) return `<div class="t1">${esc(cap(eventKind(e.kind)))}${e.detail ? ` · ${esc(eventDetail(e))}` : ""}</div><div class="t2">${esc(fmtDate(e.time))}</div>`;
@@ -5164,7 +5169,8 @@
       ["bindings", t("replace.step.bindings"), binds.length ? t("replace.bindings_value", { n: binds.length, names: `${bindNames.slice(0, 2).join(", ")}${bindNames.length > 2 ? "…" : ""}` }) : "", t(!sameNet ? "replace.hint.other_network" : binds.length ? "replace.hint.bindings" : "replace.hint.no_bindings"), !binds.length || !sameNet],
       ["notes", t("replace.step.notes"), assetBits.join(", "), t(assetBits.length ? "replace.hint.notes" : "replace.hint.nothing"), !assetBits.length],
       ["battery", t("replace.step.battery"), rec?.type ? [rec.label || rec.type, rec.last_replaced ? t("replace.battery_replaced", { date: rec.last_replaced }) : ""].filter(Boolean).join(", ") : "", t("replace.hint.battery"), !old.battery_info || !Object.keys(old.battery_info).length],
-      ["remove", t("replace.step.remove"), "", t(old.status === "removed" ? "replace.hint.already_gone" : "replace.hint.remove"), old.status === "removed"],
+      ["remove", t("replace.step.remove"), "", t(old.status === "removed" ? "replace.hint.already_gone" : canReplace(old) ? "replace.hint.remove" : "replace.hint.remove_working"), old.status === "removed"],
+      ["rename_old", t("replace.step.rename_old"), nameOf(old) ? t("replace.old_name", { name: nameOf(old) }) : "", t("replace.hint.rename_old"), old.status === "removed" || !nameOf(old)],
     ];
   };
   // ------------------------------------------------------------ QR code
@@ -5385,11 +5391,12 @@
       foot = `<label class="opt"><input type="checkbox" id="repAll" ${r.showAll ? "checked" : ""}>${th("replace.show_all")}</label><button class="btn" data-act="rep-close">${th("common.cancel")}</button><button class="btn filled" data-act="rep-next" ${r.new ? "" : "disabled"}>${th("replace.next")}</button>`;
     } else if (r.step === 2) {
       const items = repItems(old, neu);
-      const clash = r.carry.name && nameOf(old) && old.status !== "removed" && !r.carry.remove;
+      const clash = r.carry.name && nameOf(old) && old.status !== "removed" && !r.carry.remove && !r.carry.rename_old;
       body = `<p class="rep-intro">${th("replace.choose", { name: esc(oldName) })}</p>${repStepper(2)}
         <div class="swap">${repBox(old, [deviceLine(old), repStatus(old)].filter(Boolean).join(" · "), false)}${ic("swap-horizontal")}${repBox(neu, [deviceLine(neu), neu.first_seen ? t("replace.joined", { when: relTime(neu.first_seen, true) }) : ""].filter(Boolean).join(" · "), true)}</div>
         <div class="carry">${items.map(([k, title, value, hint, dis]) => `<label class="ln ${dis ? "dis" : ""} ${k === "remove" && !dis ? "danger" : ""}"><input type="checkbox" data-carry="${k}" ${r.carry[k] && !dis ? "checked" : ""} ${dis ? "disabled" : ""}><div class="text"><b>${esc(title)}</b>${value ? ` <span class="muted">${esc(value)}</span>` : ""}${hint ? `<div class="t2">${esc(hint)}</div>` : ""}</div></label>`).join("")}</div>
         ${clash ? `<div class="alerts"><div class="alert" style="--a:var(--warning)">${ic("alert")}<div class="body">${th("replace.clash", { name: esc(oldName) })}</div></div></div>` : ""}
+        ${neu && (old.model || "") !== (neu.model || "") ? `<div class="alerts"><div class="alert" style="--a:var(--info)">${ic("information-outline")}<div class="body">${th("replace.other_model", { old: esc(old.model || t("replace.unknown_model")), new: esc(neu.model || t("replace.unknown_model")) })}</div></div></div>` : ""}
         <div class="card-content muted" style="font-size:13px">${th("replace.linked_note")}</div>`;
       foot = `<button class="btn" data-act="rep-back">${th("replace.back")}</button><button class="btn filled" data-act="rep-next">${th("replace.next")}</button>`;
     } else {
@@ -5406,7 +5413,7 @@
       } else {
         body = `<p class="rep-intro">${th("replace.ready", { old: esc(oldName), new: esc(nameOf(neu) || neu.ieee) })}</p>${repStepper(3)}
           <div class="carry rep-steps">${items.length ? items.map(([k, title, value, hint]) => k === "remove" ? `<div class="ln danger"><span>${ic("delete", "s20")}</span><div class="text"><b>${esc(title)}</b><div class="t2">${esc(hint)}</div></div></div>` : `<div class="ln"><span class="muted">${ic("check", "s20")}</span><div class="text"><b>${esc(title)}</b>${value ? ` <span class="muted">${esc(value)}</span>` : ""}</div></div>`).join("") : ""}<div class="ln"><span class="muted">${ic("link-variant", "s20")}</span><div class="text"><b>${th("replace.step.link")}</b></div></div></div>
-          ${items.some(([k]) => k === "name") && !items.some(([k]) => k === "remove") && old.status !== "removed" ? `<div class="alerts"><div class="alert" style="--a:var(--warning)">${ic("alert")}<div class="body">${th("replace.clash", { name: esc(oldName) })}</div></div></div>` : ""}
+          ${items.some(([k]) => k === "name") && !items.some(([k]) => k === "remove" || k === "rename_old") && old.status !== "removed" ? `<div class="alerts"><div class="alert" style="--a:var(--warning)">${ic("alert")}<div class="body">${th("replace.clash", { name: esc(oldName) })}</div></div></div>` : ""}
           ${r.carry.bindings && bat && items.some(([k]) => k === "bindings") ? `<div class="alerts"><div class="alert" style="--a:var(--warning)">${ic("alert")}<div class="body">${th("replace.battery_warn", { name: esc(nameOf(neu) || t("replace.the_new_device")) })}</div></div></div>` : ""}`;
         const removing = items.some(([k]) => k === "remove");
         foot = `<button class="btn" data-act="rep-back">${th("replace.back")}</button><button class="btn filled ${removing ? "danger" : ""}" data-act="rep-apply">${ic(removing ? "delete" : "swap-horizontal", "s18")}${th(removing ? "replace.apply_remove" : "replace.apply")}</button>`;
@@ -5446,8 +5453,11 @@
       const old = state.byIeee.get(b.dataset.ieee || state.open);
       if (!old) return;
       const items = repItems(old, null);
-      // Removing is the one step that can't be undone, so it starts ticked only when the old device is already offline.
-      const carry = Object.fromEntries(items.map(([k, , , , dis]) => [k, !dis && k !== "battery" && (k !== "remove" || statusOf(old) === "offline")]));
+      // Zigbee2MQTT won't let two devices share a name, so the old device either goes or is renamed "<name> (old)".
+      // Removing can't be undone: it starts ticked for a dead (offline) device or a working one swapped on purpose.
+      // A silent or ghost device may still work, so it's renamed instead.
+      const removeIt = statusOf(old) === "offline" || !canReplace(old);
+      const carry = Object.fromEntries(items.map(([k, , , , dis]) => [k, !dis && k !== "battery" && (k === "remove" ? removeIt : k === "rename_old" ? !removeIt : true)]));
       state.replace = { old: old.ieee, step: 1, new: null, showAll: false, carry, result: null, busy: false };
       if (!repCandidates(old, false).length) state.replace.showAll = repCandidates(old, true).some((d) => d.model && d.model === old.model);
       renderReplace();
@@ -5544,7 +5554,13 @@
     const r = state.replace; if (!r) return;
     if (e.target.name === "repNew") { r.new = e.target.value; $("#replaceDlg [data-act=rep-next]")?.removeAttribute("disabled"); }
     else if (e.target.id === "repAll") { r.showAll = e.target.checked; renderReplace(); }
-    else if (e.target.dataset.carry) { r.carry[e.target.dataset.carry] = e.target.checked; if (["name", "remove"].includes(e.target.dataset.carry)) renderReplace(); }
+    else if (e.target.dataset.carry) {
+      const k = e.target.dataset.carry;
+      r.carry[k] = e.target.checked;
+      // The old device either goes or stays under another name, not both.
+      if (e.target.checked && (k === "remove" || k === "rename_old")) r.carry[k === "remove" ? "rename_old" : "remove"] = false;
+      if (["name", "remove", "rename_old"].includes(k)) renderReplace();
+    }
   });
 
   // ------------------------------------------------------------ events

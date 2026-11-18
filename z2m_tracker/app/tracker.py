@@ -71,7 +71,10 @@ from payload_keys import observe as observe_payload_keys
 from reliability import device_ages, model_reliability
 from reporting import audit as reporting_audit
 from reporting import clean as clean_reportings
+from reporting import clean_sent as clean_reporting_sent
 from reporting import describe as describe_reporting
+from reporting import note_sent as note_reporting_sent
+from reporting import sending as reporting_sending
 from reporting import slim as slim_reportings
 from reporting_profiles import CHOICES as PROFILE_CHOICES
 from reporting_profiles import clean_defaults as clean_profile_defaults
@@ -437,6 +440,8 @@ def _clean_record(record: dict) -> dict:
         record["payload_change"] = None
     if "reportings" in record:
         record["reportings"] = clean_reportings(record["reportings"])
+    if "reporting_sent" in record:
+        record["reporting_sent"] = clean_reporting_sent(record["reporting_sent"])
     inputs = record.get("reporting_inputs")
     record["reporting_inputs"] = (
         {
@@ -774,6 +779,18 @@ def _ping_address(device: dict) -> dict | None:
     return {"nwk": nwk, "ep": ids[0] if ids else 1}
 
 
+def _endpoint_clusters(device: dict) -> dict[str, set[str]]:
+    """Each endpoint's clusters (input and output) from a bridge/devices entry, for fitting bindings to another model."""
+    endpoints = device.get("endpoints")
+    if not isinstance(endpoints, dict):
+        return {}
+    out = {}
+    for key, info in endpoints.items():
+        clusters = (info or {}).get("clusters") or {}
+        out[str(key)] = {str(c) for c in (clusters.get("input") or []) + (clusters.get("output") or [])}
+    return out
+
+
 def _z2m_version(text: Any) -> tuple[int, int] | None:
     match = re.match(r"\s*(\d+)\.(\d+)", str(text or ""))
     return (int(match.group(1)), int(match.group(2))) if match else None
@@ -948,6 +965,7 @@ class Tracker:
         self._hours: dict[str, dict] = {}
         self._hours_at: int | None = None
         self.addresses: dict[str, dict] = {}
+        self.endpoint_clusters: dict[str, dict[str, set[str]]] = {}
         self._save_lock = threading.Lock()
         # Per base topic: (IEEEs, first seen) of a device list that would remove most devices, held until it repeats.
         self._held_list: dict[str, tuple[frozenset, float]] = {}
@@ -1209,6 +1227,9 @@ class Tracker:
             address = _ping_address(device)
             if address:
                 self.addresses[ieee] = address
+            clusters = _endpoint_clusters(device)
+            if clusters:
+                self.endpoint_clusters[ieee] = clusters
             if self._update_bindings(base_topic, record, device, name, now, tracking_already):
                 changed = True
             if self._update_reportings(record, device):
@@ -1529,6 +1550,7 @@ class Tracker:
             record.get("features"),
             self.is_battery_device(record),
             rate,
+            reporting_sending(record.get("reporting_sent"), time.time()),
         )
 
     def configure_reporting(self, ieee: str, fix: dict) -> dict:
@@ -1977,6 +1999,10 @@ class Tracker:
         if not isinstance(keys_state, dict):
             keys_state = record["payload_keys"] = {}
         added, removed = observe_payload_keys(keys_state, parsed.keys())
+        sent_state = record.get("reporting_sent")
+        if not isinstance(sent_state, dict):
+            sent_state = record["reporting_sent"] = {}
+        note_reporting_sent(sent_state, parsed, time.time())
         if added or removed:
             self._payload_changed(base_topic, record, name, added, removed, now)
             structural = True
@@ -3497,6 +3523,7 @@ class Tracker:
                 item.pop("odd_readings", None)
                 # The learning counts only matter to the tracker.
                 item.pop("payload_keys", None)
+                item.pop("reporting_sent", None)
                 item["metrics"] = self.metrics.summary(ieee, now)
                 item["uptime_30d"] = uptime(record, now)
                 item["oui_vendor"] = self._oui_vendor(ieee)
@@ -5418,16 +5445,43 @@ class Tracker:
                 return "The new device must be in Zigbee2MQTT"
         return None
 
-    def remove_from_z2m(self, ieee: str) -> dict:
-        """Force-remove a device from Zigbee2MQTT. The tracker keeps its history."""
+    def remove_from_z2m(self, ieee: str, leave: bool = False) -> dict:
+        """Remove a device from Zigbee2MQTT. The tracker keeps its history.
+
+        leave asks a working device to leave the network first, so it doesn't stay paired; a device that
+        doesn't answer is then force-removed, which only drops it from Zigbee2MQTT's database.
+        """
         with self.lock:
             record = self.data["devices"].get(ieee)
             if record is None or record["status"] != STATUS_ACTIVE:
-                return {"ok": True, "skipped": True}
+                return {"ok": True, "skipped": True, "forced": False}
             base_topic = record["instance"]
+        if leave:
+            result = self.request(base_topic, "device/remove", {"id": ieee, "force": False}, timeout=30)
+            if result and result.get("status") == "ok":
+                return {"ok": True, "error": None, "forced": False}
         result = self.request(base_topic, "device/remove", {"id": ieee, "force": True}, timeout=30)
         ok = bool(result and result.get("status") == "ok")
-        return {"ok": ok, "error": None if ok else friendly_z2m_error((result or {}).get("error") or "No response")}
+        error = None if ok else friendly_z2m_error((result or {}).get("error") or "No response")
+        return {"ok": ok, "error": error, "forced": ok}
+
+    def old_name_for(self, ieee: str) -> str | None:
+        """A free name for a replaced device that stays in Zigbee2MQTT: "<name> (old)", numbered if taken."""
+        with self.lock:
+            record = self.data["devices"].get(ieee) or {}
+            name = record.get("friendly_name")
+            if not name:
+                return None
+            taken = {
+                str(r.get("friendly_name") or "").lower()
+                for k, r in self.data["devices"].items()
+                if k != ieee and r.get("status") == STATUS_ACTIVE and r.get("instance") == record.get("instance")
+            }
+        for n in range(1, 100):
+            candidate = f"{name} (old)" if n == 1 else f"{name} (old {n})"
+            if candidate.lower() not in taken:
+                return candidate
+        return None
 
     def rebind(self, old_ieee: str, new_ieee: str) -> dict:
         """Re-create the old device's bindings on the new one through bridge/request/device/bind."""
@@ -5437,6 +5491,10 @@ class Tracker:
             if new is None or new["status"] != STATUS_ACTIVE:
                 return {"ok": False, "error": "The new device isn't in Zigbee2MQTT", "done": 0, "failed": []}
             base_topic = new["instance"]
+            old_model = (self.data["devices"].get(old_ieee) or {}).get("model")
+            # Another model may number its endpoints differently: bind from the endpoint that has the cluster.
+            fit = self.endpoint_clusters.get(new_ieee) if old_model != new.get("model") else None
+            unfit = 0
             version = str(((self.data.get("bridges") or {}).get(base_topic) or {}).get("info", {}).get("version") or "")
             groups = dict(self.groups.get(base_topic) or {})
             requests: dict[tuple[str, str], dict] = {}
@@ -5451,13 +5509,23 @@ class Tracker:
                     if rec is None or rec["status"] != STATUS_ACTIVE or rec.get("instance") != base_topic:
                         continue
                     to, to_ep = ieee, ep if ep.isdigit() else None
+                from_ep = binding.get("ep") or ""
+                if fit:
+                    cluster = binding.get("cluster")
+                    if cluster not in fit.get(from_ep, set()):
+                        having = [e for e, clusters in fit.items() if cluster in clusters]
+                        if len(having) != 1:
+                            # None, or several (a multi-gang switch): a guess could bind the wrong gang.
+                            unfit += 1
+                            continue
+                        from_ep = having[0]
                 entry = requests.setdefault(
-                    (binding.get("ep") or "", target),
-                    {"ep": binding.get("ep") or "", "to": to, "to_ep": to_ep, "clusters": [], "labels": []},
+                    (from_ep, target),
+                    {"ep": from_ep, "to": to, "to_ep": to_ep, "clusters": [], "labels": []},
                 )
                 entry["clusters"].append(binding.get("cluster"))
                 entry["labels"].append(binding.get("label") or self.binding_label(base_topic, binding))
-        skipped = len(wanted) - sum(len(r["clusters"]) for r in requests.values())
+        skipped = len(wanted) - sum(len(r["clusters"]) for r in requests.values()) - unfit
         legacy = version[:1].isdigit() and int(version.split(".", 1)[0]) < 2
         done, failed = 0, []
         for entry in list(requests.values())[:12]:
@@ -5484,10 +5552,13 @@ class Tracker:
                         "error": friendly_z2m_error((result or {}).get("error") or "No response"),
                     }
                 )
-        return {"ok": not failed, "done": done, "failed": failed, "skipped": skipped}
+        return {"ok": not failed, "done": done, "failed": failed, "skipped": skipped, "unfit": unfit}
 
-    def carry_over(self, old_ieee: str, new_ieee: str, notes: bool, battery: bool) -> list[str]:
-        """Copy notes, asset details, the battery record and the critical mark. Returns what was copied."""
+    def carry_over(self, old_ieee: str, new_ieee: str, notes: bool, battery: bool, keep_old: bool = False) -> list[str]:
+        """Copy notes, asset details, the battery record and the critical mark. Returns what was copied.
+
+        keep_old: the old device stays in use, so its maintenance tasks are copied rather than moved.
+        """
         copied = []
         with self.lock:
             old = self.data["devices"].get(old_ieee)
@@ -5513,7 +5584,8 @@ class Tracker:
                             continue
                         mine.append({**task, "id": uuid.uuid4().hex[:8]})
                     new["maintenance"] = mine
-                    old["maintenance"] = []
+                    if not keep_old:
+                        old["maintenance"] = []
                     copied.append("maintenance")
             if battery and old.get("battery_info"):
                 info = json.loads(json.dumps(old["battery_info"]))

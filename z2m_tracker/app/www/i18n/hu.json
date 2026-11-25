@@ -147,7 +147,7 @@
   "devices.no_match": "Semmi nem felel meg ennek: „{query}”.",
   "devices.empty_filter": "Ebben a szűrőben nincs semmi.",
   "devices.match_elsewhere": {
-    "one": "{n} találat mutatása a Mind között",
+    "one": "A találat mutatása a Mind között",
     "other": "{n} találat mutatása a Mind között"
   },
   "devices.count": {
@@ -326,17 +326,17 @@
   "issue.frozen.detail": "{reading} {duration} óta {value} értéken áll, {n} jelentésen át. Próbáld az Újrakonfigurálást.",
   "issue.impossible_reading.title": "Lehetetlen érték",
   "issue.impossible_reading.detail": {
-    "one": "{reading} {value}{unit}, {n} alkalommal 24 óra alatt. A többi mérése: {lo}–{hi}{unit}. Gyakran merülő elem vagy rossz érintkezés okozza.",
+    "one": "{reading} {value}{unit}, egyszer 24 óra alatt. A többi mérése: {lo}–{hi}{unit}. Gyakran merülő elem vagy rossz érintkezés okozza.",
     "other": "{reading} {value}{unit}, {n} alkalommal 24 óra alatt. A többi mérése: {lo}–{hi}{unit}. Gyakran merülő elem vagy rossz érintkezés okozza."
   },
   "issue.impossible_reading_no_range.title": "Lehetetlen érték",
   "issue.impossible_reading_no_range.detail": {
-    "one": "{reading} {value}{unit}, {n} alkalommal 24 óra alatt. Gyakran merülő elem vagy rossz érintkezés okozza.",
+    "one": "{reading} {value}{unit}, egyszer 24 óra alatt. Gyakran merülő elem vagy rossz érintkezés okozza.",
     "other": "{reading} {value}{unit}, {n} alkalommal 24 óra alatt. Gyakran merülő elem vagy rossz érintkezés okozza."
   },
   "issue.impossible_battery.title": "Lehetetlen töltöttségi érték",
   "issue.impossible_battery.detail": {
-    "one": "A {value}%-os töltöttség nem valós érték ({n} alkalommal 24 óra alatt). Az elembecslések figyelmen kívül hagyják.",
+    "one": "A {value}%-os töltöttség nem valós érték (egyszer 24 óra alatt). Az elembecslések figyelmen kívül hagyják.",
     "other": "A {value}%-os töltöttség nem valós érték ({n} alkalommal 24 óra alatt). Az elembecslések figyelmen kívül hagyják."
   },
   "issue.humidity_stuck.title": "Beragadt páratartalom",
@@ -420,7 +420,7 @@
   "issue.network_offline.detail": "{duration} óta nem válaszol. A hálózat minden eszköze elérhetetlen. Ellenőrizd a koordinátor tápellátását és hálózati kapcsolatát.",
   "issue.router_offline.title": "Router offline",
   "issue.router_offline.detail": {
-    "one": "A rajta keresztül kapcsolódó {n} eszköz is offline: {names}. Először a tápellátását ellenőrizd.",
+    "one": "A rajta keresztül kapcsolódó eszköz is offline: {names}. Először a tápellátását ellenőrizd.",
     "other": "A rajta keresztül kapcsolódó {n} eszköz is offline: {names}. Először a tápellátását ellenőrizd."
   },
   "issue.router_offline.more": {
@@ -715,11 +715,11 @@
   "map.fp_not_scanned": "nem szerepel a felmérésben",
   "map.fp_the_coordinator": "a koordinátor",
   "map.fp_weak": {
-    "one": "Mind a(z) {n} kapcsolat gyenge",
+    "one": "Az egyetlen kapcsolata gyenge",
     "other": "Mind a(z) {n} kapcsolat gyenge"
   },
   "map.fp_weak_via": {
-    "one": "Mind a(z) {n} kapcsolat gyenge, ezen keresztül: {name}",
+    "one": "Az egyetlen kapcsolata gyenge, ezen keresztül: {name}",
     "other": "Mind a(z) {n} kapcsolat gyenge, ezen keresztül: {name}"
   },
   "map.fp_no_area": "Terület nélküli eszközök",
@@ -1077,21 +1077,21 @@
   "bindings.restore_all": "Összes visszaállítása",
   "bindings.restore_nothing": "Nincs mit visszaállítani",
   "bindings.restore_title": {
-    "one": "Visszaállítod a {n} kötést?",
+    "one": "Visszaállítod ezt a kötést?",
     "other": "Visszaállítod a {n} kötést?"
   },
   "bindings.restore_text": {
-    "one": "Megkéri a Zigbee2MQTT-t, hogy hozza létre újra ezeket a kötéseket ezen: {name}:",
+    "one": "Megkéri a Zigbee2MQTT-t, hogy hozza létre újra ezt a kötést ezen: {name}:",
     "other": "Megkéri a Zigbee2MQTT-t, hogy hozza létre újra ezeket a kötéseket ezen: {name}:"
   },
   "bindings.restore_time": "Kötésenként akár egy percig is tarthat.",
   "bindings.restore_battery": "Ez az eszköz elemes, lehet, hogy alszik. Előbb nyomj meg egy gombot az eszközön, hogy felébredjen, aztán erősítsd meg.",
   "bindings.restoring": {
-    "one": "{n} kötés visszaállítása ezen: {name}…",
+    "one": "Kötés visszaállítása ezen: {name}…",
     "other": "{n} kötés visszaállítása ezen: {name}…"
   },
   "bindings.restored": {
-    "one": "{n} kötés visszaállítva",
+    "one": "Kötés visszaállítva",
     "other": "{n} kötés visszaállítva"
   },
   "bindings.restore_failed": "A visszaállítás sikertelen: {error}",
@@ -1376,7 +1376,7 @@
   "ota.update_all_battery": "A {pct}% alatti elemes eszközök kimaradnak.",
   "ota.update_all_total": "Ez összesen kb. {total}.",
   "ota.update_all_skipped": {
-    "one": "Kihagyva: {names}. Az elemük {pct}% alatt van.",
+    "one": "Kihagyva: {names}. Az eleme {pct}% alatt van.",
     "other": "Kihagyva: {names}. Az elemük {pct}% alatt van."
   },
   "ota.and_more": "és még {n}",
@@ -1780,19 +1780,19 @@
   "maint.title": "Karbantartás",
   "maint.none": "Nincs karbantartási feladat. Adj hozzá ismétlődő teendőket, például füstérzékelő tesztelését vagy szenzor tisztítását.",
   "maint.every.days": {
-    "one": "{n} naponta",
+    "one": "Naponta",
     "other": "{n} naponta"
   },
   "maint.every.weeks": {
-    "one": "{n} hetente",
+    "one": "Hetente",
     "other": "{n} hetente"
   },
   "maint.every.months": {
-    "one": "{n} havonta",
+    "one": "Havonta",
     "other": "{n} havonta"
   },
   "maint.every.years": {
-    "one": "{n} évente",
+    "one": "Évente",
     "other": "{n} évente"
   },
   "maint.unit.days": "nap",
@@ -1806,7 +1806,7 @@
   "maint.overdue_tag": "Lejárt",
   "maint.due_today": "Ma esedékes",
   "maint.due_in": {
-    "one": "{n} nap múlva esedékes",
+    "one": "Holnap esedékes",
     "other": "{n} nap múlva esedékes"
   },
   "maint.due_on": "Esedékes: {date}",
@@ -2106,7 +2106,7 @@
   "card.network.devices": "Eszközök",
   "card.network.routers": "Routerek",
   "card.network.weak_spots": {
-    "one": "Gyenge pontok",
+    "one": "Gyenge pont",
     "other": "Gyenge pontok"
   },
   "card.network.section": "{name} hálózat",
@@ -2320,7 +2320,7 @@
   "sub.empty_models_text": "Néhány nap után itt jelenik meg az egyes modellek üzemideje és elemélettartama.",
   "fine.coord_down": "{name} offline",
   "fine.coord_online": {
-    "one": "{n} hálózat online",
+    "one": "Online",
     "other": "{n} hálózat online"
   },
   "fine.backup_age": "mentés: {when}",
@@ -2351,11 +2351,11 @@
     "other": "{n} modell, egyik sem lóg ki"
   },
   "fine.community_rate": {
-    "one": "{n} modellednek még nincs értékelése. Értékeld őket, hogy segíts másoknak választani",
+    "one": "1 modellednek még nincs értékelése. Értékeld, hogy segíts másoknak választani",
     "other": "{n} modellednek még nincs értékelése. Értékeld őket, hogy segíts másoknak választani"
   },
   "fine.community_ok": {
-    "one": "Mind a(z) {n} modellednek van közösségi értékelése",
+    "one": "A modellednek van közösségi értékelése",
     "other": "Mind a(z) {n} modellednek van közösségi értékelése"
   },
   "fine.models_bad": {
@@ -2393,7 +2393,7 @@
   "issue.label.stale_retained": "Elavult megőrzött üzenetek",
   "issue.stale_retained.title": "Elavult megőrzött üzenetek",
   "issue.stale_retained.detail": {
-    "one": "{n} megőrzött (retained) üzenet nem tartozik egyik jelenlegi eszközhöz sem, pl. {topic}.",
+    "one": "1 megőrzött (retained) üzenet nem tartozik egyik jelenlegi eszközhöz sem: {topic}.",
     "other": "{n} megőrzött (retained) üzenet nem tartozik egyik jelenlegi eszközhöz sem, pl. {topic}."
   },
   "check.stale_retained.label": "Elavult megőrzött üzenetek",
@@ -2425,7 +2425,7 @@
   "ret.review": "Átnézés",
   "ret.note": "A Törlés egy üres megőrzött üzenetet küld, amely törli azt a brókerből. Az eszköznek nem megy semmi.",
   "ret.confirm_title": {
-    "one": "Törlöd a {n} megőrzött üzenetet?",
+    "one": "Törlöd a megőrzött üzenetet?",
     "other": "Törlöd a {n} megőrzött üzenetet?"
   },
   "ret.confirm_text": "A bróker törli őket, így a Home Assistant és más MQTT-kliensek újraindításkor már nem olvassák be őket. Egyik eszköznek sem megy semmi, és a jelenlegi eszközök témáihoz nem nyúl.",
@@ -2445,19 +2445,19 @@
   "issue.label.retained_command": "Megőrzött parancs",
   "issue.retained_command.title": "Megőrzött parancs",
   "issue.retained_command.detail": {
-    "one": "{topic} tartalma: {payload}, összesen {n} téma. A bróker minden újraindítás után újra elküldi őket, így az eszköz megismétli őket. Általában egy retain bekapcsolásával küldő automatizálás vagy Node-RED-folyamat okozza.",
+    "one": "{topic} tartalma: {payload}. A bróker minden újraindítás után újra elküldi, így az eszköz megismétli. Általában egy retain bekapcsolásával küldő automatizálás vagy Node-RED-folyamat okozza.",
     "other": "{topic} tartalma: {payload}, összesen {n} téma. A bróker minden újraindítás után újra elküldi őket, így az eszköz megismétli őket. Általában egy retain bekapcsolásával küldő automatizálás vagy Node-RED-folyamat okozza."
   },
   "check.retained_command.label": "Megőrzött parancs",
   "check.retained_command.description": "Egy parancs (<name>/set) megőrzött (retained) üzenetként van a brókeren, ezért az eszköz minden alkalommal megismétli, amikor a bróker vagy a Zigbee2MQTT újraindul.",
   "retcmd.clear": "Törlés",
   "retcmd.confirm_title": {
-    "one": "Törlöd a {n} megőrzött parancsot?",
+    "one": "Törlöd a megőrzött parancsot?",
     "other": "Törlöd a {n} megőrzött parancsot?"
   },
   "retcmd.confirm_text": "Az alábbi témák mindegyikébe üres megőrzött üzenetet küld, amely törli azt a brókerből. Az eszköznek nem megy semmi. Ha egy automatizálás továbbra is retainnel küldi, visszajön: ott kapcsold ki a retaint.",
   "retcmd.cleared": {
-    "one": "{n} megőrzött parancs törölve",
+    "one": "Megőrzött parancs törölve",
     "other": "{n} megőrzött parancs törölve"
   },
   "issue.label.availability_mismatch": "Elérhetőségi ellentmondás",
@@ -2668,7 +2668,7 @@
   "week.title": "Ezen a héten",
   "week.quiet": "Csendes hét: semmi nem csatlakozott, lépett ki vagy esett ki.",
   "week.net_down": {
-    "one": "A(z) {name} hálózat {n} alkalommal ment offline, összesen {minutes} percre",
+    "one": "A(z) {name} hálózat egyszer ment offline, összesen {minutes} percre",
     "other": "A(z) {name} hálózat {n} alkalommal ment offline, összesen {minutes} percre"
   },
   "week.joined": {
@@ -2688,7 +2688,7 @@
   "week.all_activity": "Minden esemény",
   "week.recent_none": "Az elmúlt héten nem történt semmi.",
   "week.flapped": {
-    "one": "{name} {n} alkalommal ment offline",
+    "one": "{name} egyszer ment offline",
     "other": "{name} {n} alkalommal ment offline"
   },
   "week.between": "{from} és {to} között, minden alkalommal visszajött",
@@ -2708,7 +2708,7 @@
   "lqi.weak": "gyenge",
   "page.review_settings": "Beállítások átnézése",
   "history.repeats": {
-    "one": "{n} alkalommal, {from} és {to} között",
+    "one": "Egyszer, {to}",
     "other": "{n} alkalommal, {from} és {to} között"
   },
   "hops.scans": {
